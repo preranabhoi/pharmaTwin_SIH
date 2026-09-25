@@ -1,0 +1,26 @@
+[
+  {
+    "name": "Acetaminophen (Paracetamol)",
+    "smiles": "CC(=O)NC1=CC=C(O)C=C1",
+    "chembl_id": "CHEMBL112",
+    "description": "Common analgesic and antipyretic drug; known dose-dependent hepatotoxicity risk."
+  },
+  {
+    "name": "Aspirin (Acetylsalicylic acid)",
+    "smiles": "CC(=O)OC1=CC=CC=C1C(=O)O",
+    "chembl_id": "CHEMBL25",
+    "description": "Nonsteroidal anti-inflammatory drug (NSAID); potential gastric mucosal irritation risk."
+  },
+  {
+    "name": "Ibuprofen",
+    "smiles": "CC(C)CC1=CC=C(C=C1)C(C)C(=O)O",
+    "chembl_id": "CHEMBL521",
+    "description": "NSAID with renal and gastrointestinal risk profiles."
+  },
+  {
+    "name": "Doxorubicin",
+    "smiles": "COC1=C(C(=O)C2=C(C1=O)C(=CC3=C2C(=O)C4=C(C3=O)C(=CC=C4)O)O)C(=O)CO",
+    "chembl_id": "CHEMBL53",
+    "description": "Anthracycline chemotherapy agent with known cardiotoxicity profile."
+  }
+]
