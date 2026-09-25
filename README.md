@@ -307,8 +307,25 @@ curl "http://localhost:8000/api/organ-risk/dc6ece59-05c6-4aca-9f92-9a227d879b85"
 - **Strict Scientific Direction of Causality & Workflow**:
   - Pipeline flow: $\text{Drug Candidate} \rightarrow \text{Multi-Modal AI Prediction} \rightarrow \text{Organ Risk Mapping} \rightarrow \text{Highlighted 3D Virtual Twin}$.
   - Strictly prevents organ-first manual bias workflows.
-- **Graceful 2D Anatomical SVG Fallback**:
-  - Provides a clean, responsive vector-based 2D anatomical SVG fallback when WebGL is unavailable or when 2D mode is toggled.
+### Phase 8: Unified Researcher Dashboard & Evidence Pipeline
+- **End-to-End Researcher Workflow**:
+  - Unified interface allowing seamless exploration across the complete 8-phase pipeline without page reloads:
+    $$\text{Drug Input} \longrightarrow \text{Molecular Processing} \longrightarrow \text{Evidence Ingestion} \longrightarrow \text{Knowledge Graph} \longrightarrow \text{Risk Prediction} \longrightarrow \text{Explainability (SHAP)} \longrightarrow \text{Human Virtual Twin}$$
+- **Interactive Multi-Mode Viewport**:
+  - **3D Human Virtual Twin**: Three.js WebGL anatomical model with modular selectable organ meshes (`brain`, `heart`, `lungs`, `liver`, `kidneys`, `gastrointestinal`) and real-time pulsing high-risk glow.
+  - **Interactive Knowledge Graph Viewport**: Visual hierarchical tree depicting mechanistic relationships: $\text{Drug} \rightarrow \text{Targets} \rightarrow \text{Pathways} \rightarrow \text{Tissues} \rightarrow \text{Organs}$.
+  - **2D Anatomical SVG Fallback**: Clean vector-based anatomical SVG mode.
+- **Cheminformatics & Molecular Evidence Panel**:
+  - 2D chemical structure depiction rendered via RDKit SVG.
+  - 9 physicochemical descriptors (Molecular Weight, LogP, TPSA, HBD, HBA, Rotatable Bonds, Ring Counts, Heavy Atom Counts).
+  - 2048-bit Morgan Circular Fingerprint (ECFP4 equivalent) summary and InChIKey.
+  - Structure file ingestion support (`.sdf`, `.mol`, `.sd`) with drag-and-drop file upload.
+- **Multi-Source Biomedical Evidence Cards**:
+  - Real-time aggregated evidence counters and badges from **PubChem**, **ChEMBL**, **UniProt**, **OpenTargets**, **SIDER**, and **PubMed**.
+- **Evidence Sufficiency & Low Evidence Alert**:
+  - Automated detection of sparse biomedical evidence with prominent alert: `⚠️ Insufficient supporting evidence — review required.`
+- **Slide-Over Organ Traceability Drawer**:
+  - Answers *"Why Did PharmaTwin Predict This Risk?"* with quantitative risk scores, primary pharmacological mechanisms, Knowledge Graph multi-hop paths, SIDER clinical adverse reactions, and PubMed citations.
 
 ---
 
@@ -333,13 +350,15 @@ pip install -r requirements.txt
 pytest tests/ -v
 ```
 
-### 3. Launch Interactive Human Virtual Twin & API
+### 3. Launch Researcher Dashboard & API Server
 ```bash
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+cd backend
+uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
-- **Interactive 3D Virtual Twin App**: `http://localhost:8000/app` or `http://localhost:8000/twin`
-- **Interactive API Documentation (Swagger UI)**: `http://localhost:8000/docs`
-- **ReDoc Technical Schema Reference**: `http://localhost:8000/redoc`
+- **Unified Researcher Dashboard**: [http://localhost:8000/app](http://localhost:8000/app) or [http://localhost:8000/twin](http://localhost:8000/twin)
+- **Interactive API Documentation (Swagger UI)**: [http://localhost:8000/docs](http://localhost:8000/docs)
+- **ReDoc Technical Schema Reference**: [http://localhost:8000/redoc](http://localhost:8000/redoc)
+
 
 
 

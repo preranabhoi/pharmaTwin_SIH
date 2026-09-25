@@ -93,14 +93,14 @@ def root() -> dict[str, str]:
         "message": "PharmaTwin AI API is running.",
         "status": "healthy",
         "version": settings.APP_VERSION,
-        "phase": "Phase 7: Interactive Human Virtual Twin & Risk Intelligence",
+        "phase": "Phase 8: Complete Researcher Dashboard & Evidence Pipeline",
     }
 
 
 @app.get("/twin", include_in_schema=True, summary="Serve interactive 3D Human Virtual Twin web application")
-@app.get("/app", include_in_schema=True, summary="Serve interactive PharmaTwin AI web dashboard")
+@app.get("/app", include_in_schema=True, summary="Serve interactive PharmaTwin AI Researcher Dashboard")
 def serve_virtual_twin():
-    """Serves the interactive Phase 7 3D Human Virtual Twin UI."""
+    """Serves the interactive Phase 8 Researcher Dashboard & 3D Human Virtual Twin UI."""
     index_path = FRONTEND_DIR / "index.html"
     if index_path.exists():
         return FileResponse(index_path)
@@ -108,6 +108,24 @@ def serve_virtual_twin():
         status_code=status.HTTP_404_NOT_FOUND,
         detail="Frontend index.html not found.",
     )
+
+
+@app.get("/{filename}.css", include_in_schema=False)
+def serve_root_css(filename: str):
+    """Directly serve CSS stylesheet from frontend directory."""
+    css_path = FRONTEND_DIR / f"{filename}.css"
+    if css_path.exists():
+        return FileResponse(css_path, media_type="text/css")
+    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="CSS file not found")
+
+
+@app.get("/{filename}.js", include_in_schema=False)
+def serve_root_js(filename: str):
+    """Directly serve ES Module JavaScript from frontend directory."""
+    js_path = FRONTEND_DIR / f"{filename}.js"
+    if js_path.exists():
+        return FileResponse(js_path, media_type="application/javascript")
+    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="JavaScript file not found")
 
 
 # Mount static assets if frontend directory exists

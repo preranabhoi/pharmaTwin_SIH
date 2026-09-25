@@ -540,13 +540,14 @@ def test_api_virtual_twin_static_assets(client):
     assert "PharmaTwinApp" in app_js_res.text
 
 
-def test_api_root_phase_7(client):
-    """Test GET / reflects Phase 7 active status."""
+def test_api_root_phase_8(client):
+    """Test GET / reflects Phase 8 active status."""
     res = client.get("/")
     assert res.status_code == 200
     data = res.json()
-    assert "Phase 7" in data["phase"]
-    assert "Human Virtual Twin" in data["phase"]
+    assert "Phase 8" in data["phase"]
+    assert "Researcher Dashboard" in data["phase"]
+
 
 
 
