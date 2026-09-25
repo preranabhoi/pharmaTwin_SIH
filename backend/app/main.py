@@ -34,6 +34,7 @@ from app.molecular_processing import (
     render_molecule_svg,
     validate_smiles,
 )
+from app.explainability import generate_prediction_explanation
 from app.risk_prediction import predict_drug_risk
 from app.schemas import (
     DemoDrugItem,
@@ -47,6 +48,7 @@ from app.schemas import (
     GraphSubgraphResponse,
     HealthResponse,
     MolecularProcessingResponse,
+    PredictionExplanationResponse,
     ProcessingStatus,
 )
 
@@ -84,7 +86,7 @@ def root() -> dict[str, str]:
         "message": "PharmaTwin AI API is running.",
         "status": "healthy",
         "version": settings.APP_VERSION,
-        "phase": "Phase 4: Evidence Fusion and Risk Reasoning Engine",
+        "phase": "Phase 5: Explainability and Evidence Traceability Engine",
     }
 
 
@@ -471,4 +473,40 @@ def get_prediction_report(
             detail=f"Risk prediction report '{prediction_id}' not found in audit logs.",
         )
     return record
+
+
+# ---------------------------------------------------------
+# PHASE 5: EXPLAINABILITY & EVIDENCE TRACEABILITY ENDPOINTS
+# ---------------------------------------------------------
+
+@app.get(
+    "/api/explanations/{prediction_id}",
+    response_model=PredictionExplanationResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Generate UI-ready SHAP feature attributions and multi-source evidence traceability report",
+)
+def get_prediction_explanation(
+    prediction_id: str = FastApiPath(..., description="Target prediction UUID to explain"),
+) -> PredictionExplanationResponse:
+    """
+    Answers: 'WHY DID PHARMATWIN PREDICT THIS RISK?'
+    - Computes local SHAP feature attributions (contribution, direction, rank, description).
+    - Links supporting Knowledge Graph mechanistic paths (Drug -> Target -> Gene -> Pathway -> Tissue -> Organ).
+    - Links supporting SIDER historical adverse reactions and PubMed literature citations.
+    - Provides explanation quality metadata (source diversity, evidence count, baseline expected value).
+    - Strictly differentiates statistical feature attribution from biological causality.
+    """
+    try:
+        return generate_prediction_explanation(prediction_id)
+    except ValueError as val_err:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(val_err),
+        ) from val_err
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to generate explanation report: {str(exc)}",
+        ) from exc
+
 

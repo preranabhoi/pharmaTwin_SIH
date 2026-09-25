@@ -420,3 +420,50 @@ def test_api_risk_predict_unseen_compound_sufficiency_flag(client):
     assert len(data["evidence_sufficiency"]["review_reasons"]) > 0
     assert data["confidence"] <= 0.55
 
+
+# ---------------------------------------------------------
+# PHASE 5: EXPLAINABILITY & TRACEABILITY API TESTS
+# ---------------------------------------------------------
+
+def test_api_explain_prediction_acetaminophen(client):
+    """Test GET /api/explanations/{prediction_id} returns UI-ready SHAP explanation & evidence linkages."""
+    payload = {
+        "drug_id": "CHEMBL112",
+        "smiles": "CC(=O)NC1=CC=C(O)C=C1",
+        "name": "Acetaminophen",
+        "model_type": "random_forest",
+    }
+    post_res = client.post("/api/risk/predict", json=payload)
+    assert post_res.status_code == 200
+    pred_id = post_res.json()["prediction_id"]
+
+    exp_res = client.get(f"/api/explanations/{pred_id}")
+    assert exp_res.status_code == 200
+    data = exp_res.json()
+
+    assert data["prediction_id"] == pred_id
+    assert data["drug_id"] == "CHEMBL112"
+    assert data["drug_name"] == "Acetaminophen"
+    assert len(data["top_features"]) == 8
+    assert len(data["all_feature_contributions"]) == 32
+    assert len(data["supporting_paths"]) > 0
+    assert len(data["supporting_evidence"]) > 0
+    assert len(data["supporting_literature"]) > 0
+    assert len(data["similarity_matches"]) > 0
+
+    # Validate causality distinction
+    assert "statistical" in data["causality_distinction"].lower()
+    assert "not constitute proven biological causality" in data["causality_distinction"].lower()
+
+    # Validate quality metadata
+    assert data["quality_metadata"]["evidence_count"] > 0
+    assert len(data["quality_metadata"]["evidence_source_diversity"]) > 0
+
+
+def test_api_explain_prediction_not_found(client):
+    """Test GET /api/explanations/{prediction_id} returns 404 for unknown prediction UUID."""
+    response = client.get("/api/explanations/unknown-pred-uuid-00000")
+    assert response.status_code == 404
+    assert "not found" in response.json()["detail"].lower()
+
+

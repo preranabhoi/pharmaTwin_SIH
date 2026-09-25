@@ -342,3 +342,73 @@ class DrugRiskPredictionResponse(BaseModel):
     )
     status: ProcessingStatus = Field(..., description="Execution status")
     created_at: str = Field(..., description="ISO 8601 UTC timestamp of prediction generation")
+
+
+# ---------------------------------------------------------
+# Phase 5: Explainability & Evidence Traceability Schemas
+# ---------------------------------------------------------
+
+class FeatureSHAPExplanation(BaseModel):
+    """Local SHAP feature attribution record for a single feature dimension."""
+    feature_name: str = Field(..., description="Standardized feature identifier")
+    feature_value: float = Field(..., description="Observed input value for this instance")
+    contribution: float = Field(..., description="SHAP value (additive shift from base value to prediction)")
+    direction: str = Field(..., description="'increases_risk' if contribution > 0 else 'decreases_risk'")
+    rank: int = Field(..., description="Importance rank ordered by absolute contribution magnitude")
+    description: str = Field(..., description="Human-readable pharmacological/computational explanation of the feature")
+    attribution_type: str = Field(
+        default="statistical_feature_contribution",
+        description="Type of attribution: 'statistical_feature_contribution' (SHAP) vs 'mechanistic_biological_pathway'",
+    )
+
+
+class ExplanationQualityMetadata(BaseModel):
+    """Quality and provenance metadata for the explainability report."""
+    evidence_count: int = Field(..., description="Total count of supporting evidence items")
+    evidence_source_diversity: List[str] = Field(..., description="Distinct upstream databases contributing evidence")
+    confidence: float = Field(..., description="Prediction confidence score")
+    evidence_sufficiency: EvidenceSufficiencyCheck = Field(..., description="Sufficiency check evaluation")
+    base_value: float = Field(..., description="Expected value E[f(x)] across background baseline dataset")
+    prediction_value: float = Field(..., description="Model prediction probability f(x)")
+
+
+class PredictionExplanationResponse(BaseModel):
+    """
+    Standard Phase 5 UI-Ready Explainability & Evidence Traceability Response.
+    Answers: 'WHY DID PHARMATWIN PREDICT THIS RISK?'
+    Strictly separates statistical feature attribution from biological causality.
+    """
+    prediction_id: str = Field(..., description="Unique prediction UUID")
+    drug_id: str = Field(..., description="Evaluated drug identifier")
+    drug_name: Optional[str] = Field(default=None, description="Common compound name")
+    canonical_smiles: Optional[str] = Field(default=None, description="Canonical SMILES representation")
+    model_used: str = Field(..., description="Model architecture used for inference")
+    overall_risk: float = Field(..., ge=0.0, le=1.0, description="Predicted overall adverse risk probability")
+    overall_risk_category: str = Field(..., description="Prototype category: 'Low', 'Moderate', 'High'")
+    confidence: float = Field(..., ge=0.0, le=1.0, description="Prediction certainty score")
+    evidence_strength: float = Field(..., ge=0.0, le=1.0, description="Evidence volume and diversity score")
+    base_value: float = Field(..., description="Baseline expected prediction E[f(x)]")
+    top_features: List[FeatureSHAPExplanation] = Field(default_factory=list, description="Top ranked SHAP feature attributions")
+    all_feature_contributions: List[FeatureSHAPExplanation] = Field(default_factory=list, description="Complete 32-dim SHAP attribution array")
+    supporting_paths: List[GraphPathModel] = Field(default_factory=list, description="Traceable mechanistic paths in knowledge graph")
+    supporting_evidence: List[NormalizedEvidence] = Field(default_factory=list, description="Supporting multi-source evidence records")
+    supporting_literature: List[Dict[str, Any]] = Field(default_factory=list, description="Supporting peer-reviewed literature records")
+    similarity_matches: List[MolecularSimilarityMatch] = Field(default_factory=list, description="Benchmark compound similarity matches")
+    quality_metadata: ExplanationQualityMetadata = Field(..., description="Explanation quality, diversity, and sufficiency metrics")
+    causality_distinction: str = Field(
+        default=(
+            "Statistical feature attributions (SHAP) quantify how input variables shifted the statistical model "
+            "score relative to the background baseline. They do NOT constitute proven biological causality. "
+            "Traceable biological hypotheses are represented separately via Knowledge Graph mechanistic paths."
+        ),
+        description="Explicit boundary distinguishing statistical feature contribution from biological causality",
+    )
+    disclaimer: str = Field(
+        default=(
+            "Research-grade decision-support prototype. Predictions and feature attributions are computational "
+            "hypotheses and must be experimentally validated. Not a clinical diagnostic or treatment recommendation system."
+        ),
+        description="Mandatory scientific boundary disclaimer",
+    )
+    created_at: str = Field(..., description="ISO 8601 UTC timestamp")
+
