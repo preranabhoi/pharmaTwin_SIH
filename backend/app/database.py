@@ -1,8 +1,8 @@
 """
 Database & Local Caching Module
 
-Provides local SQLite-based persistent caching for biomedical evidence,
-ensuring fast response times and offline reliability for repeated queries.
+Provides local SQLite-based persistent caching for biomedical evidence and
+prediction audit logs, ensuring fast response times and reproducibility.
 """
 
 from __future__ import annotations
@@ -53,15 +53,31 @@ def init_db() -> None:
                 ON evidence_cache(canonical_smiles);
                 """
             )
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS risk_predictions (
+                    prediction_id TEXT PRIMARY KEY,
+                    drug_id TEXT,
+                    canonical_smiles TEXT,
+                    overall_risk REAL,
+                    confidence REAL,
+                    prediction_json TEXT NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+                """
+            )
+            conn.execute(
+                """
+                CREATE INDEX IF NOT EXISTS idx_pred_drug_id 
+                ON risk_predictions(drug_id);
+                """
+            )
     finally:
         conn.close()
 
 
 def get_cached_evidence(cache_key: str) -> Optional[Dict[str, Any]]:
-    """
-    Retrieves cached evidence dictionary for a given cache key.
-    Returns None if cache miss or error.
-    """
+    """Retrieves cached evidence dictionary for a given cache key."""
     init_db()
     conn = get_db_connection()
     try:
@@ -86,9 +102,7 @@ def save_cached_evidence(
     canonical_smiles: Optional[str],
     evidence_data: Dict[str, Any],
 ) -> bool:
-    """
-    Saves or updates evidence dictionary in the local SQLite cache.
-    """
+    """Saves or updates evidence dictionary in the local SQLite cache."""
     init_db()
     conn = get_db_connection()
     try:
@@ -120,12 +134,72 @@ def save_cached_evidence(
         conn.close()
 
 
+def save_risk_prediction(
+    prediction_id: str,
+    drug_id: str,
+    canonical_smiles: Optional[str],
+    overall_risk: float,
+    confidence: float,
+    prediction_data: Dict[str, Any],
+) -> bool:
+    """Persists a complete risk prediction payload into SQLite."""
+    init_db()
+    conn = get_db_connection()
+    try:
+        pred_json = json.dumps(prediction_data, default=str)
+        now_iso = datetime.now(timezone.utc).isoformat()
+        with conn:
+            conn.execute(
+                """
+                INSERT INTO risk_predictions (prediction_id, drug_id, canonical_smiles, overall_risk, confidence, prediction_json, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(prediction_id) DO UPDATE SET
+                    prediction_json = excluded.prediction_json;
+                """,
+                (
+                    prediction_id.strip(),
+                    drug_id.strip(),
+                    canonical_smiles,
+                    float(overall_risk),
+                    float(confidence),
+                    pred_json,
+                    now_iso,
+                ),
+            )
+        return True
+    except Exception:
+        return False
+    finally:
+        conn.close()
+
+
+def get_risk_prediction(prediction_id: str) -> Optional[Dict[str, Any]]:
+    """Retrieves stored risk prediction by prediction UUID."""
+    init_db()
+    conn = get_db_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT prediction_json FROM risk_predictions WHERE prediction_id = ?",
+            (prediction_id.strip(),),
+        )
+        row = cursor.fetchone()
+        if row and row["prediction_json"]:
+            return json.loads(row["prediction_json"])
+        return None
+    except Exception:
+        return None
+    finally:
+        conn.close()
+
+
 def clear_cache() -> None:
-    """Clears all records in the evidence cache (useful for testing)."""
+    """Clears all records in the evidence cache and prediction logs."""
     init_db()
     conn = get_db_connection()
     try:
         with conn:
             conn.execute("DELETE FROM evidence_cache;")
+            conn.execute("DELETE FROM risk_predictions;")
     finally:
         conn.close()

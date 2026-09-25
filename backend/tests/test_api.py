@@ -329,3 +329,94 @@ def test_api_graph_drug_unknown(client):
     assert data["nodes"] == []
     assert data["edges"] == []
     assert data["paths"] == []
+
+
+# ---------------------------------------------------------
+# PHASE 4: RISK PREDICTION API TESTS
+# ---------------------------------------------------------
+
+def test_api_risk_predict_demo_acetaminophen(client):
+    """Test POST /api/risk/predict for Acetaminophen returns complete multi-organ assessment."""
+    payload = {
+        "drug_id": "CHEMBL112",
+        "smiles": "CC(=O)NC1=CC=C(O)C=C1",
+        "name": "Acetaminophen",
+        "model_type": "random_forest",
+    }
+    response = client.post("/api/risk/predict", json=payload)
+    assert response.status_code == 200
+    data = response.json()
+
+    assert data["prediction_id"] is not None
+    assert data["drug_id"] == "CHEMBL112"
+    assert "overall_risk" in data
+    assert 0.0 <= data["overall_risk"] <= 1.0
+    assert data["overall_risk_category"] in ("Low", "Moderate", "High")
+    assert 0.0 <= data["confidence"] <= 1.0
+    assert 0.0 <= data["evidence_strength"] <= 1.0
+
+    # Organ level risks
+    organs = data["organ_risks"]
+    for organ in ("heart", "liver", "kidney", "lung", "brain"):
+        assert organ in organs
+        assert 0.0 <= organs[organ]["risk_score"] <= 1.0
+        assert organs[organ]["risk_category"] in ("Low", "Moderate", "High")
+
+    # Sufficiency & Explainability
+    assert data["evidence_sufficiency"]["is_sufficient"] is True
+    assert data["evidence_sufficiency"]["flag_for_review"] is False
+    assert len(data["explainability"]["contributing_features"]) > 0
+    assert len(data["explainability"]["graph_paths"]) > 0
+    assert len(data["explainability"]["similarity_matches"]) > 0
+    assert "research-grade" in data["disclaimer"].lower()
+
+
+def test_api_risk_get_by_id(client):
+    """Test GET /api/risk/{prediction_id} retrieves audited prediction."""
+    payload = {
+        "drug_id": "CHEMBL25",
+        "smiles": "CC(=O)Oc1ccccc1C(=O)O",
+        "name": "Aspirin",
+        "model_type": "ensemble",
+    }
+    post_res = client.post("/api/risk/predict", json=payload)
+    assert post_res.status_code == 200
+    pred_id = post_res.json()["prediction_id"]
+
+    get_res = client.get(f"/api/risk/{pred_id}")
+    assert get_res.status_code == 200
+    data = get_res.json()
+    assert data["prediction_id"] == pred_id
+    assert data["drug_id"] == "CHEMBL25"
+    assert data["model_used"] == "ensemble"
+
+
+def test_api_risk_get_by_id_not_found(client):
+    """Test GET /api/risk/{prediction_id} returns 404 for nonexistent UUID."""
+    response = client.get("/api/risk/non-existent-uuid-99999")
+    assert response.status_code == 404
+    assert "not found" in response.json()["detail"].lower()
+
+
+def test_api_risk_predict_empty_payload(client):
+    """Test POST /api/risk/predict returns 400 when no identifier is provided."""
+    response = client.post("/api/risk/predict", json={})
+    assert response.status_code == 400
+    assert "at least one drug identifier" in response.json()["detail"].lower()
+
+
+def test_api_risk_predict_unseen_compound_sufficiency_flag(client):
+    """Test POST /api/risk/predict correctly flags sparse novel compound for review."""
+    payload = {
+        "smiles": "CCCCCCCCCC(=O)O",
+        "name": "DecanoicAcidDerivative",
+    }
+    response = client.post("/api/risk/predict", json=payload)
+    assert response.status_code == 200
+    data = response.json()
+
+    assert data["evidence_sufficiency"]["is_sufficient"] is False
+    assert data["evidence_sufficiency"]["flag_for_review"] is True
+    assert len(data["evidence_sufficiency"]["review_reasons"]) > 0
+    assert data["confidence"] <= 0.55
+

@@ -120,6 +120,32 @@ PharmaTwin/
 - **Transparent Evidence Weighting**: Path confidence is computed as the product of edge confidences $\prod c_i$ with provenance traceability for every transition.
 - **Frontend-Ready Visualization Format**: Serializes subgraphs into node and edge collections compatible with Cytoscape.js, React Force Graph, and D3.
 
+### Phase 4: Evidence Fusion & Risk Reasoning Engine (Primary Research Module)
+- **Standardized Multi-Modal Alignment**: Standardizes heterogeneous evidence into a fixed 32-dimensional numerical feature representation across molecular descriptors, knowledge graph paths, SIDER clinical adverse reports, literature citations, and Tanimoto similarity metrics.
+- **Transparent Confidence & Evidence Weighting**:
+  - Strictly separates **Model Prediction** ($\hat{y} \in [0, 1]$), **Confidence** ($C \in [0, 1]$), and **Evidence Strength** ($S \in [0, 1]$) to avoid misleading single "medical certainty" metrics.
+  - Evidence strength formula: $S = 0.20 \cdot S_{\text{mol}} + 0.30 \cdot S_{\text{graph}} + 0.30 \cdot S_{\text{hist}} + 0.20 \cdot S_{\text{lit}}$.
+- **Molecular Similarity Retrieval**:
+  - Tanimoto coefficient calculation over Morgan fingerprints against benchmark drugs.
+  - Explicit scientific disclaimer: *Molecular similarity informs prior evidence retrieval, but does not prove clinical toxicity.*
+- **Pluggable Risk Model Abstraction (`BaseRiskModel`)**:
+  - Implementations: `RandomForestRiskModel` (decision tree ensemble), `LogisticRegressionRiskModel` (L2-regularized), and `EnsembleRiskModel` (consensus predictor).
+  - Deterministic training, serialization (`save`/`load`), and feature importances.
+- **Evaluation & Validation Pipeline**:
+  - Metrics: Accuracy, Precision, Recall, F1, ROC-AUC (NumPy 2.x trapezoid rank integration), and Confusion Matrix.
+  - Reproducible splitting: `train_test_split` (fixed random state) and `temporal_split` (historical vs prospective chronological evaluation).
+- **Evidence Sufficiency Gate**:
+  - Multi-criteria gate evaluating structural validity, target assays, graph paths, and literature citations.
+  - Sufficient evidence $\rightarrow$ standard prediction.
+  - Insufficient/sparse evidence $\rightarrow$ prediction flagged for manual review (`flag_for_review = True`, explicit review reasons, and confidence dampened to $\le 0.55$).
+- **Multi-Organ Toxicity Decomposition**:
+  - Evaluates individual organ systems: **Heart**, **Liver**, **Kidney**, **Lung**, and **Brain** along with **Overall Adverse Risk**.
+  - Prototype Risk Categories: `Low` ($< 0.35$), `Moderate` ($0.35 - 0.69$), `High` ($\ge 0.70$).
+  - Mandatory disclaimer: Categories are research prototype thresholds, not clinically validated diagnostic conclusions.
+- **Traceable Explainability & Persistence**:
+  - Attributions for top contributing features, supporting evidence records, knowledge graph paths, literature citations, and similarity matches.
+  - Persisted to local SQLite audit log (`risk_predictions` table).
+
 ---
 
 ## 🌐 API Endpoints
@@ -138,111 +164,147 @@ PharmaTwin/
 | `GET` | `/api/graph/drug/{drug_id}` | Retrieve frontend-ready biomedical knowledge subgraph |
 | `GET` | `/api/graph/drug/{drug_id}/paths` | Extract multi-hop mechanistic reasoning paths to organs |
 | `GET` | `/api/graph/search` | Search graph entities by keyword and entity type |
+| `POST` | `/api/risk/predict` | **Phase 4**: Multi-modal evidence fusion and organ risk prediction |
+| `GET` | `/api/risk/{prediction_id}` | **Phase 4**: Retrieve audited risk prediction report by UUID |
 
 ---
 
 ## 💻 Example API Calls & Responses
 
-### 1. Retrieve Knowledge Subgraph (GET `/api/graph/drug/{drug_id}`)
+### 1. Multi-Organ Risk Prediction (POST `/api/risk/predict`)
 
 **Request**:
 ```bash
-curl "http://localhost:8000/api/graph/drug/CHEMBL112?depth=3&max_nodes=100"
+curl -X POST "http://localhost:8000/api/risk/predict" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "drug_id": "CHEMBL112",
+    "smiles": "CC(=O)NC1=CC=C(O)C=C1",
+    "name": "Acetaminophen",
+    "model_type": "random_forest"
+  }'
 ```
 
 **Response**:
 ```json
 {
-  "drug_id": "CHEMBL:CHEMBL112",
+  "prediction_id": "dc6ece59-05c6-4aca-9f92-9a227d879b85",
+  "drug_id": "CHEMBL112",
   "drug_name": "Acetaminophen",
   "canonical_smiles": "CC(=O)Nc1ccc(O)cc1",
-  "engine": "InMemoryGraph",
-  "total_nodes": 12,
-  "total_edges": 14,
-  "nodes": [
-    {
-      "id": "CHEMBL:CHEMBL112",
-      "name": "Acetaminophen",
-      "type": "Drug",
-      "properties": {"formula": "C8H9NO2"}
+  "model_used": "random_forest",
+  "overall_risk": 0.8282,
+  "overall_risk_category": "High",
+  "confidence": 0.9313,
+  "evidence_strength": 1.0,
+  "organ_risks": {
+    "heart": {
+      "organ": "heart",
+      "organ_name": "Heart (Cardiovascular System)",
+      "risk_score": 0.3201,
+      "risk_category": "Low",
+      "confidence": 0.8720,
+      "evidence_strength": 1.0,
+      "primary_mechanisms": ["No specific high-affinity heart liability detected"],
+      "graph_paths_count": 0,
+      "adverse_effects_count": 0,
+      "literature_citations_count": 1
     },
-    {
-      "id": "UNIPROT:P20813",
-      "name": "Cytochrome P450 2E1 (CYP2E1)",
-      "type": "Protein",
-      "properties": {"gene": "CYP2E1"}
+    "liver": {
+      "organ": "liver",
+      "organ_name": "Liver (Hepatic System)",
+      "risk_score": 0.7559,
+      "risk_category": "High",
+      "confidence": 0.9024,
+      "evidence_strength": 1.0,
+      "primary_mechanisms": [
+        "Acetaminophen [ASSOCIATED_WITH_ADVERSE_EFFECT] -> Hepatotoxicity [AFFECTS_ORGAN] -> Liver",
+        "Acetaminophen [ASSOCIATED_WITH_ADVERSE_EFFECT] -> Acute Hepatic Failure [AFFECTS_ORGAN] -> Liver",
+        "Reported Reaction: Hepatotoxicity",
+        "Reported Reaction: Acute Hepatic Failure"
+      ],
+      "graph_paths_count": 2,
+      "adverse_effects_count": 2,
+      "literature_citations_count": 1
     },
-    {
-      "id": "PATHWAY:NAPQI_HEPATOTOX",
-      "name": "NAPQI Bioactivation & Glutathione Depletion",
-      "type": "Pathway",
-      "properties": {"reactome_id": "REACT_71"}
+    "kidney": {
+      "organ": "kidney",
+      "organ_name": "Kidney (Renal System)",
+      "risk_score": 0.4512,
+      "risk_category": "Moderate",
+      "confidence": 0.8195,
+      "evidence_strength": 1.0,
+      "primary_mechanisms": ["Secondary metabolic clearance strain"],
+      "graph_paths_count": 0,
+      "adverse_effects_count": 0,
+      "literature_citations_count": 1
     },
-    {
-      "id": "TISSUE:HEPATOCYTES",
-      "name": "Hepatocytes",
-      "type": "Tissue",
-      "properties": {"organ": "Liver"}
+    "lung": {
+      "organ": "lung",
+      "organ_name": "Lung (Respiratory System)",
+      "risk_score": 0.1245,
+      "risk_category": "Low",
+      "confidence": 0.9500,
+      "evidence_strength": 1.0,
+      "primary_mechanisms": ["No specific high-affinity lung liability detected"],
+      "graph_paths_count": 0,
+      "adverse_effects_count": 0,
+      "literature_citations_count": 1
     },
-    {
-      "id": "ORGAN:LIVER",
-      "name": "Liver",
-      "type": "Organ",
-      "properties": {"system": "Hepatic"}
+    "brain": {
+      "organ": "brain",
+      "organ_name": "Brain (Central Nervous System)",
+      "risk_score": 0.1873,
+      "risk_category": "Low",
+      "confidence": 0.9251,
+      "evidence_strength": 1.0,
+      "primary_mechanisms": ["No specific high-affinity brain liability detected"],
+      "graph_paths_count": 0,
+      "adverse_effects_count": 0,
+      "literature_citations_count": 1
     }
-  ],
-  "edges": [
-    {
-      "id": "CHEMBL:CHEMBL112->METABOLIZED_BY->UNIPROT:P20813",
-      "source": "CHEMBL:CHEMBL112",
-      "target": "UNIPROT:P20813",
-      "relation": "METABOLIZED_BY",
-      "confidence": 0.95,
-      "source_db": "UniProt",
-      "evidence_type": "metabolic_pathway",
-      "provenance_id": "UNIPROT_P20813"
-    },
-    {
-      "id": "PATHWAY:NAPQI_HEPATOTOX->ACTIVE_IN_TISSUE->TISSUE:HEPATOCYTES",
-      "source": "PATHWAY:NAPQI_HEPATOTOX",
-      "target": "TISSUE:HEPATOCYTES",
-      "relation": "ACTIVE_IN_TISSUE",
-      "confidence": 0.96,
-      "source_db": "UniProt",
-      "evidence_type": "tissue_expression"
+  },
+  "evidence_sufficiency": {
+    "is_sufficient": true,
+    "flag_for_review": false,
+    "review_reasons": [],
+    "criteria_met": {
+      "valid_structure": true,
+      "complete_descriptors": true,
+      "biological_evidence_present": true,
+      "knowledge_graph_paths_present": true,
+      "literature_citations_present": true
     }
-  ],
-  "paths": [
-    {
-      "path_id": "path_CHEMBL:CHEMBL112_ORGAN:LIVER_1",
-      "path_type": "mechanistic_organ_path",
-      "target_organ": "Liver",
-      "nodes": ["CHEMBL:CHEMBL112", "UNIPROT:P20813", "GENE:CYP2E1", "PATHWAY:NAPQI_HEPATOTOX", "TISSUE:HEPATOCYTES", "ORGAN:LIVER"],
-      "node_names": ["Acetaminophen", "Cytochrome P450 2E1 (CYP2E1)", "CYP2E1", "NAPQI Bioactivation & Glutathione Depletion", "Hepatocytes", "Liver"],
-      "relations": ["METABOLIZED_BY", "ENCODED_BY", "PARTICIPATES_IN_PATHWAY", "ACTIVE_IN_TISSUE", "PART_OF_ORGAN"],
-      "confidence": 0.8482,
-      "confidence_tier": "high",
-      "description": "Acetaminophen [METABOLIZED_BY] -> Cytochrome P450 2E1 (CYP2E1) [ENCODED_BY] -> CYP2E1 [PARTICIPATES_IN_PATHWAY] -> NAPQI Bioactivation & Glutathione Depletion [ACTIVE_IN_TISSUE] -> Hepatocytes [PART_OF_ORGAN] -> Liver"
-    }
-  ],
-  "evidence_sources": ["ChEMBL", "UniProt", "SIDER", "PubMed", "OpenTargets"],
+  },
+  "explainability": {
+    "contributing_features": [
+      {"feature_index": 11, "feature_name": "kg_paths_liver", "feature_value": 0.4, "importance_weight": 0.185},
+      {"feature_index": 21, "feature_name": "adverse_liver_count", "feature_value": 0.5, "importance_weight": 0.162},
+      {"feature_index": 1, "feature_name": "logp_norm", "feature_value": 0.391, "importance_weight": 0.114}
+    ],
+    "similarity_matches": [
+      {
+        "reference_drug_id": "CHEMBL112",
+        "reference_drug_name": "Acetaminophen",
+        "tanimoto_similarity": 1.0,
+        "known_organ_risks": ["Liver (Hepatotoxicity / NAPQI necrosis)", "Kidney (Tubular strain)"],
+        "disclaimer": "Molecular similarity informs prior evidence retrieval, but does not prove clinical toxicity."
+      }
+    ]
+  },
+  "disclaimer": "Research-grade decision-support prototype. Categories ('Low', 'Moderate', 'High') are research prototype thresholds and must be validated on appropriate preclinical and clinical datasets. Not a clinical diagnostic or treatment recommendation system.",
   "status": {
     "valid": true,
-    "message": "Extracted subgraph with 12 nodes, 14 edges, and 3 reasoning paths."
-  }
+    "message": "Evidence fusion and multi-organ risk reasoning completed successfully."
+  },
+  "created_at": "2026-09-25T21:43:16.000000+00:00"
 }
 ```
 
-### 2. Extract Mechanistic Reasoning Paths (GET `/api/graph/drug/{drug_id}/paths`)
+### 2. Retrieve Audited Risk Report (GET `/api/risk/{prediction_id}`)
 
 ```bash
-curl "http://localhost:8000/api/graph/drug/CHEMBL53/paths?target_organ=Heart"
-```
-
-### 3. Search Knowledge Graph Entities (GET `/api/graph/search`)
-
-```bash
-curl "http://localhost:8000/api/graph/search?query=Liver&entity_type=Organ"
+curl "http://localhost:8000/api/risk/dc6ece59-05c6-4aca-9f92-9a227d879b85"
 ```
 
 ---
@@ -264,7 +326,7 @@ pip install -r requirements.txt
 
 ### 2. Run Test Suite
 ```bash
-# Run all 59 unit and API integration tests
+# Run all 84 unit and API integration tests
 pytest tests/ -v
 ```
 
@@ -274,3 +336,4 @@ uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 - **Swagger UI**: `http://localhost:8000/docs`
 - **ReDoc**: `http://localhost:8000/redoc`
+

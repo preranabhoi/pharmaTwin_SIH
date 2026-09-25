@@ -259,3 +259,86 @@ class GraphSearchResponse(BaseModel):
     total_results: int
     results: List[GraphSearchResultItem]
     status: ProcessingStatus
+
+
+# ---------------------------------------------------------
+# Phase 4: Evidence Fusion & Risk Reasoning Schemas
+# ---------------------------------------------------------
+
+class OrganRiskAssessment(BaseModel):
+    """Decomposed risk prediction and evidence summary for a single organ system."""
+    organ: str = Field(..., description="Organ key: 'heart', 'liver', 'kidney', 'lung', 'brain'")
+    organ_name: str = Field(..., description="Full descriptive anatomical organ name")
+    risk_score: float = Field(..., ge=0.0, le=1.0, description="Predicted risk probability score (0.0 to 1.0)")
+    risk_category: str = Field(..., description="Prototype category: 'Low' (<0.35), 'Moderate' (0.35-0.69), 'High' (>=0.70)")
+    confidence: float = Field(..., ge=0.0, le=1.0, description="Model and evidence confidence estimate (0.0 to 1.0)")
+    evidence_strength: float = Field(..., ge=0.0, le=1.0, description="Normalized multi-source evidence volume & consistency score")
+    primary_mechanisms: List[str] = Field(default_factory=list, description="Mechanistic pathways or known pharmacological risks")
+    graph_paths_count: int = Field(default=0, description="Number of multi-hop knowledge graph paths to this organ")
+    adverse_effects_count: int = Field(default=0, description="Number of recorded clinical adverse reactions on this organ")
+    literature_citations_count: int = Field(default=0, description="Number of literature citations supporting this organ endpoint")
+
+
+class EvidenceSufficiencyCheck(BaseModel):
+    """Evidence sufficiency gating evaluation."""
+    is_sufficient: bool = Field(..., description="True if evidence meets sufficiency criteria across sources")
+    flag_for_review: bool = Field(..., description="True if evidence is sparse or insufficient, requiring manual/expert review")
+    review_reasons: List[str] = Field(default_factory=list, description="Explicit reasons for flagging if evidence is insufficient")
+    criteria_met: Dict[str, bool] = Field(default_factory=dict, description="Checklist of evaluated evidence gates")
+
+
+class MolecularSimilarityMatch(BaseModel):
+    """Tanimoto similarity evidence against benchmark drugs."""
+    reference_drug_id: str = Field(..., description="Benchmark compound ID (e.g. CHEMBL112)")
+    reference_drug_name: str = Field(..., description="Benchmark compound name")
+    tanimoto_similarity: float = Field(..., ge=0.0, le=1.0, description="Tanimoto similarity coefficient over Morgan fingerprints")
+    known_organ_risks: List[str] = Field(default_factory=list, description="Established organ toxicities of the benchmark drug")
+    disclaimer: str = Field(
+        default="Molecular similarity informs prior evidence retrieval, but does not prove clinical toxicity.",
+        description="Scientific scope disclaimer",
+    )
+
+
+class RiskExplainabilityMetadata(BaseModel):
+    """Comprehensive explainability payload supporting the prediction."""
+    contributing_features: List[Dict[str, Any]] = Field(default_factory=list, description="Top ranked physicochemical & fingerprint features")
+    contributing_evidence: List[NormalizedEvidence] = Field(default_factory=list, description="Supporting multi-source evidence records")
+    graph_paths: List[GraphPathModel] = Field(default_factory=list, description="Supporting multi-hop reasoning paths")
+    literature_references: List[Dict[str, Any]] = Field(default_factory=list, description="Supporting peer-reviewed literature records")
+    similarity_matches: List[MolecularSimilarityMatch] = Field(default_factory=list, description="Nearest benchmark compounds by Morgan fingerprint similarity")
+
+
+class DrugRiskPredictionRequest(BaseModel):
+    """Request payload for risk reasoning and multi-organ prediction."""
+    drug_id: Optional[str] = Field(default=None, description="Optional drug identifier (e.g. CHEMBL112)")
+    smiles: Optional[str] = Field(default=None, description="SMILES representation of the query molecule")
+    name: Optional[str] = Field(default=None, description="Optional common compound name")
+    model_type: Optional[str] = Field(
+        default="random_forest",
+        description="Risk model architecture: 'random_forest', 'logistic_regression', or 'ensemble'",
+    )
+
+
+class DrugRiskPredictionResponse(BaseModel):
+    """
+    Standard Phase 4 Multi-Modal Risk Reasoning & Organ Prediction Response.
+    Strictly separates model prediction, confidence, evidence strength, and prototype tiers.
+    """
+    prediction_id: str = Field(..., description="Unique UUID for this prediction run")
+    drug_id: str = Field(..., description="Evaluated drug identifier")
+    drug_name: Optional[str] = Field(default=None, description="Evaluated compound name")
+    canonical_smiles: Optional[str] = Field(default=None, description="Canonical SMILES structure")
+    model_used: str = Field(..., description="Machine learning model architecture used for inference")
+    overall_risk: float = Field(..., ge=0.0, le=1.0, description="Predicted overall adverse risk probability score (0.0 to 1.0)")
+    overall_risk_category: str = Field(..., description="Prototype category: 'Low', 'Moderate', 'High'")
+    confidence: float = Field(..., ge=0.0, le=1.0, description="Prediction certainty score based on evidence coverage and model confidence")
+    evidence_strength: float = Field(..., ge=0.0, le=1.0, description="Aggregate volume, diversity, and consistency of supporting evidence")
+    organ_risks: Dict[str, OrganRiskAssessment] = Field(..., description="Decomposed organ-level risk predictions for heart, liver, kidney, lung, brain")
+    evidence_sufficiency: EvidenceSufficiencyCheck = Field(..., description="Sufficiency gating results and review flags")
+    explainability: RiskExplainabilityMetadata = Field(..., description="Traceable feature attributions, graph paths, and evidence records")
+    disclaimer: str = Field(
+        default="Research-grade decision-support prototype. Categories are prototype thresholds, not clinically validated diagnostic conclusions.",
+        description="Mandatory research boundary disclaimer",
+    )
+    status: ProcessingStatus = Field(..., description="Execution status")
+    created_at: str = Field(..., description="ISO 8601 UTC timestamp of prediction generation")

@@ -19,6 +19,7 @@ from fastapi import (
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
+from app.database import get_risk_prediction
 from app.data_ingestion import fetch_drug_biomedical_data
 from app.knowledge_graph import (
     build_drug_subgraph,
@@ -33,10 +34,13 @@ from app.molecular_processing import (
     render_molecule_svg,
     validate_smiles,
 )
+from app.risk_prediction import predict_drug_risk
 from app.schemas import (
     DemoDrugItem,
     DrugEvidenceQuery,
     DrugEvidenceResponse,
+    DrugRiskPredictionRequest,
+    DrugRiskPredictionResponse,
     DrugSmilesInput,
     GraphPathsResponse,
     GraphSearchResponse,
@@ -80,7 +84,7 @@ def root() -> dict[str, str]:
         "message": "PharmaTwin AI API is running.",
         "status": "healthy",
         "version": settings.APP_VERSION,
-        "phase": "Phase 3: Biomedical Knowledge Graph & Path Reasoning",
+        "phase": "Phase 4: Evidence Fusion and Risk Reasoning Engine",
     }
 
 
@@ -410,3 +414,61 @@ def search_knowledge_graph(
     Searches entities across the knowledge graph with keyword matching and degree metrics.
     """
     return search_graph(query=query, entity_type=entity_type, limit=limit)
+
+
+# ---------------------------------------------------------
+# PHASE 4: EVIDENCE FUSION & RISK REASONING ENDPOINTS
+# ---------------------------------------------------------
+
+@app.post(
+    "/api/risk/predict",
+    response_model=DrugRiskPredictionResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Run evidence fusion and multi-organ adverse risk prediction",
+)
+def predict_risk(
+    request: DrugRiskPredictionRequest,
+) -> DrugRiskPredictionResponse:
+    """
+    Primary Phase 4 Multi-Modal Risk Reasoning & Organ Risk Prediction Pipeline:
+    - Fuses molecular descriptors, fingerprint similarity, knowledge graph paths, adverse events, and literature.
+    - Strictly separates model prediction, confidence, and evidence strength.
+    - Employs evidence sufficiency gating (flags sparse evidence without inflating confidence).
+    - Outputs decomposed organ-level risks (Heart, Liver, Kidney, Lung, Brain).
+    - Returns full explainability attributions and saves an immutable audit record.
+    """
+    if not request.drug_id and not request.smiles and not request.name:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="At least one drug identifier ('drug_id', 'smiles', or 'name') must be provided.",
+        )
+
+    try:
+        return predict_drug_risk(request)
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Risk prediction failed: {str(exc)}",
+        ) from exc
+
+
+@app.get(
+    "/api/risk/{prediction_id}",
+    response_model=DrugRiskPredictionResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Retrieve an audited risk prediction report by prediction UUID",
+)
+def get_prediction_report(
+    prediction_id: str = FastApiPath(..., description="Unique prediction UUID"),
+) -> dict:
+    """
+    Retrieves stored immutable risk prediction audit record from SQLite.
+    """
+    record = get_risk_prediction(prediction_id)
+    if not record:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Risk prediction report '{prediction_id}' not found in audit logs.",
+        )
+    return record
+
