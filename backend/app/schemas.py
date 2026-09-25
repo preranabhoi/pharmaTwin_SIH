@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional
 from pydantic import BaseModel, Field
 
 
 # ---------------------------------------------------------
-# Drug Input Schemas
+# Drug Input Schemas (Phase 1)
 # ---------------------------------------------------------
 
 class DrugSmilesInput(BaseModel):
@@ -31,7 +31,7 @@ class DrugSmilesInput(BaseModel):
 
 
 # ---------------------------------------------------------
-# Nested Molecular Evidence Schemas
+# Nested Molecular Evidence Schemas (Phase 1)
 # ---------------------------------------------------------
 
 class DrugInputMetadata(BaseModel):
@@ -83,18 +83,9 @@ class ProcessingStatus(BaseModel):
     )
 
 
-# ---------------------------------------------------------
-# Standard API Response Models
-# ---------------------------------------------------------
-
 class MolecularProcessingResponse(BaseModel):
     """
-    Standard Phase 1 Molecular Evidence Response containing:
-    - drug metadata
-    - standardized molecule identifiers (canonical SMILES, InChI, InChIKey)
-    - 9 physicochemical descriptors
-    - 2048-bit Morgan fingerprint
-    - validation status
+    Standard Phase 1 Molecular Evidence Response.
     """
     drug: DrugInputMetadata
     molecule: MoleculeIdentifiers
@@ -126,3 +117,131 @@ class HealthResponse(BaseModel):
     app_name: str
     version: str
     environment: str
+
+
+# ---------------------------------------------------------
+# Phase 2: Normalized Biomedical Evidence Schemas
+# ---------------------------------------------------------
+
+EntityType = Literal[
+    "drug",
+    "target",
+    "protein",
+    "gene",
+    "pathway",
+    "tissue",
+    "organ",
+    "adverse_effect",
+    "paper",
+]
+
+
+class NormalizedEvidence(BaseModel):
+    """
+    Standardized, atomic biomedical evidence record linking entities
+    with confidence scores and complete provenance.
+    """
+    source: str = Field(
+        ...,
+        description="Biomedical source provider (e.g. PubChem, ChEMBL, UniProt, OpenTargets, SIDER, PubMed)",
+        examples=["ChEMBL"],
+    )
+    entity_type: EntityType = Field(
+        ...,
+        description="Standardized biomedical entity classification",
+        examples=["target"],
+    )
+    entity_id: str = Field(
+        ...,
+        description="Standardized CURIE or identifier (e.g. CHEMBL:CHEMBL221, UNIPROT:P23219, PMID:15214041)",
+        examples=["CHEMBL:CHEMBL221"],
+    )
+    entity_name: str = Field(
+        ...,
+        description="Canonical human-readable name of the entity",
+        examples=["Prostaglandin G/H synthase 1 (PTGS1 / COX-1)"],
+    )
+    relation: str = Field(
+        ...,
+        description="Semantic relationship verb (e.g. inhibits, targets, binds_to, metabolized_by, associated_with_adverse_effect)",
+        examples=["inhibits"],
+    )
+    object_id: str = Field(
+        ...,
+        description="Identifier of the subject/drug object this evidence links to",
+        examples=["CHEMBL:CHEMBL112"],
+    )
+    confidence: float = Field(
+        default=1.0,
+        ge=0.0,
+        le=1.0,
+        description="Normalized confidence score (0.0 to 1.0)",
+        examples=[0.88],
+    )
+    evidence_type: str = Field(
+        ...,
+        description="Methodological category of evidence (e.g. bioassay, curated_protein_database, clinical_side_effect, peer_reviewed_literature)",
+        examples=["bioassay"],
+    )
+    retrieved_at: str = Field(
+        ...,
+        description="ISO 8601 UTC timestamp of retrieval",
+        examples=["2026-09-25T12:00:00Z"],
+    )
+    source_version: Optional[str] = Field(
+        default=None,
+        description="Version or release timestamp of the source database",
+        examples=["v33"],
+    )
+    metadata: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="Contextual metadata (e.g. IC50, organ target, journal, gene symbol)",
+    )
+
+
+class EvidenceSummary(BaseModel):
+    """Summary statistics for aggregated multi-source biomedical evidence."""
+    total_evidence_count: int
+    sources_contacted: List[str]
+    sources_succeeded: List[str]
+    sources_failed: List[str] = Field(default_factory=list)
+    entity_type_counts: Dict[str, int] = Field(default_factory=dict)
+    target_count: int = 0
+    adverse_effect_count: int = 0
+    pathway_count: int = 0
+    literature_count: int = 0
+
+
+class DrugEvidenceQuery(BaseModel):
+    """Request payload for biomedical evidence query."""
+    drug_id: Optional[str] = Field(
+        default=None,
+        description="Drug identifier (e.g., CHEMBL112, PUBCHEM:CID1983)",
+        examples=["CHEMBL112"],
+    )
+    smiles: Optional[str] = Field(
+        default=None,
+        description="SMILES string to resolve compound",
+        examples=["CC(=O)NC1=CC=C(O)C=C1"],
+    )
+    name: Optional[str] = Field(
+        default=None,
+        description="Common drug name",
+        examples=["Acetaminophen"],
+    )
+    force_refresh: bool = Field(
+        default=False,
+        description="Bypass local cache and perform fresh ingestion",
+    )
+
+
+class DrugEvidenceResponse(BaseModel):
+    """Complete aggregated response for Phase 2 evidence ingestion."""
+    drug_id: str
+    drug_name: Optional[str] = None
+    canonical_smiles: Optional[str] = None
+    cached: bool = False
+    demo_mode: bool = True
+    summary: EvidenceSummary
+    evidence: List[NormalizedEvidence]
+    status: ProcessingStatus

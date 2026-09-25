@@ -1,0 +1,602 @@
+{
+  "CHEMBL112": {
+    "drug_identifiers": {
+      "chembl_id": "CHEMBL112",
+      "pubchem_cid": "1983",
+      "name": "Acetaminophen",
+      "synonyms": ["Paracetamol", "APAP", "Tylenol", "N-acetyl-p-aminophenol"],
+      "smiles": "CC(=O)NC1=CC=C(O)C=C1",
+      "canonical_smiles": "CC(=O)Nc1ccc(O)cc1",
+      "inchi_key": "RZVAJINKPMORJF-UHFFFAOYSA-N",
+      "formula": "C8H9NO2"
+    },
+    "evidence": [
+      {
+        "source": "PubChem",
+        "entity_type": "drug",
+        "entity_id": "PUBCHEM:CID1983",
+        "entity_name": "Acetaminophen",
+        "relation": "has_chemical_property",
+        "object_id": "CHEMBL:CHEMBL112",
+        "confidence": 1.0,
+        "evidence_type": "chemical_structure",
+        "source_version": "2026.03",
+        "metadata": {
+          "iupac_name": "N-(4-hydroxyphenyl)acetamide",
+          "exact_mass": 151.0633,
+          "xlogp": 0.5
+        }
+      },
+      {
+        "source": "ChEMBL",
+        "entity_type": "target",
+        "entity_id": "CHEMBL:CHEMBL221",
+        "entity_name": "Prostaglandin G/H synthase 1 (PTGS1 / COX-1)",
+        "relation": "inhibits",
+        "object_id": "CHEMBL:CHEMBL112",
+        "confidence": 0.85,
+        "evidence_type": "bioassay",
+        "source_version": "v33",
+        "metadata": {
+          "assay_type": "Binding",
+          "ic50_um": 26.0,
+          "organism": "Homo sapiens"
+        }
+      },
+      {
+        "source": "ChEMBL",
+        "entity_type": "target",
+        "entity_id": "CHEMBL:CHEMBL230",
+        "entity_name": "Prostaglandin G/H synthase 2 (PTGS2 / COX-2)",
+        "relation": "inhibits",
+        "object_id": "CHEMBL:CHEMBL112",
+        "confidence": 0.88,
+        "evidence_type": "bioassay",
+        "source_version": "v33",
+        "metadata": {
+          "assay_type": "Binding",
+          "ic50_um": 50.0,
+          "organism": "Homo sapiens"
+        }
+      },
+      {
+        "source": "UniProt",
+        "entity_type": "protein",
+        "entity_id": "UNIPROT:P23219",
+        "entity_name": "Prostaglandin G/H synthase 1 (PTGS1)",
+        "relation": "targets",
+        "object_id": "CHEMBL:CHEMBL112",
+        "confidence": 0.90,
+        "evidence_type": "curated_protein_database",
+        "source_version": "2026_01",
+        "metadata": {
+          "gene_symbol": "PTGS1",
+          "function": "Converts arachidonate to prostaglandin H2",
+          "cellular_location": "Endoplasmic reticulum membrane"
+        }
+      },
+      {
+        "source": "UniProt",
+        "entity_type": "protein",
+        "entity_id": "UNIPROT:P20813",
+        "entity_name": "Cytochrome P450 2E1 (CYP2E1)",
+        "relation": "metabolized_by",
+        "object_id": "CHEMBL:CHEMBL112",
+        "confidence": 0.95,
+        "evidence_type": "metabolic_pathway",
+        "source_version": "2026_01",
+        "metadata": {
+          "gene_symbol": "CYP2E1",
+          "tissue_expression": "Liver (Hepatocytes)",
+          "pathway_note": "Bioactivates acetaminophen into reactive N-acetyl-p-benzoquinone imine (NAPQI)"
+        }
+      },
+      {
+        "source": "UniProt",
+        "entity_type": "protein",
+        "entity_id": "UNIPROT:P08684",
+        "entity_name": "Cytochrome P450 3A4 (CYP3A4)",
+        "relation": "metabolized_by",
+        "object_id": "CHEMBL:CHEMBL112",
+        "confidence": 0.92,
+        "evidence_type": "metabolic_pathway",
+        "source_version": "2026_01",
+        "metadata": {
+          "gene_symbol": "CY3A4",
+          "tissue_expression": "Liver, Small Intestine"
+        }
+      },
+      {
+        "source": "OpenTargets",
+        "entity_type": "pathway",
+        "entity_id": "OPENTARGETS:REACT_71",
+        "entity_name": "Arachidonic acid metabolism & Glutathione conjugation",
+        "relation": "participates_in_pathway",
+        "object_id": "CHEMBL:CHEMBL112",
+        "confidence": 0.89,
+        "evidence_type": "pathway_annotation",
+        "source_version": "24.03",
+        "metadata": {
+          "disease_association": "Pain / Pyrexia / Hepatic Necrosis",
+          "association_score": 0.82
+        }
+      },
+      {
+        "source": "SIDER",
+        "entity_type": "adverse_effect",
+        "entity_id": "SIDER:UMLS:C0019202",
+        "entity_name": "Hepatotoxicity",
+        "relation": "associated_with_adverse_effect",
+        "object_id": "CHEMBL:CHEMBL112",
+        "confidence": 0.96,
+        "evidence_type": "clinical_side_effect",
+        "source_version": "4.1",
+        "metadata": {
+          "meddra_id": "10019805",
+          "target_organ": "Liver",
+          "frequency": "Dose-dependent / Overdose risk",
+          "severity": "High / Critical"
+        }
+      },
+      {
+        "source": "SIDER",
+        "entity_type": "adverse_effect",
+        "entity_id": "SIDER:UMLS:C0162557",
+        "entity_name": "Acute Hepatic Failure",
+        "relation": "associated_with_adverse_effect",
+        "object_id": "CHEMBL:CHEMBL112",
+        "confidence": 0.91,
+        "evidence_type": "clinical_side_effect",
+        "source_version": "4.1",
+        "metadata": {
+          "meddra_id": "10000804",
+          "target_organ": "Liver",
+          "severity": "Critical"
+        }
+      },
+      {
+        "source": "SIDER",
+        "entity_type": "adverse_effect",
+        "entity_id": "SIDER:UMLS:C0027497",
+        "entity_name": "Nausea",
+        "relation": "associated_with_adverse_effect",
+        "object_id": "CHEMBL:CHEMBL112",
+        "confidence": 0.74,
+        "evidence_type": "clinical_side_effect",
+        "source_version": "4.1",
+        "metadata": {
+          "meddra_id": "10028813",
+          "target_organ": "Gastrointestinal",
+          "severity": "Mild"
+        }
+      },
+      {
+        "source": "PubMed",
+        "entity_type": "paper",
+        "entity_id": "PMID:15214041",
+        "entity_name": "Acetaminophen-induced hepatotoxicity: molecular mechanisms and clinical implications",
+        "relation": "reported_in_literature",
+        "object_id": "CHEMBL:CHEMBL112",
+        "confidence": 0.95,
+        "evidence_type": "peer_reviewed_literature",
+        "source_version": "2004",
+        "metadata": {
+          "journal": "Journal of Hepatology",
+          "year": 2004,
+          "key_finding": "NAPQI covalent binding to mitochondrial proteins drives hepatocyte oxidative stress and necrosis."
+        }
+      },
+      {
+        "source": "PubMed",
+        "entity_type": "paper",
+        "entity_id": "PMID:18451734",
+        "entity_name": "Mechanisms of acetaminophen-induced liver necrosis and cellular protection",
+        "relation": "reported_in_literature",
+        "object_id": "CHEMBL:CHEMBL112",
+        "confidence": 0.93,
+        "evidence_type": "peer_reviewed_literature",
+        "source_version": "2008",
+        "metadata": {
+          "journal": "Toxicology and Applied Pharmacology",
+          "year": 2008,
+          "key_finding": "Role of CYP2E1 in NAPQI formation and mitigation by N-acetylcysteine (NAC)."
+        }
+      }
+    ]
+  },
+  "CHEMBL25": {
+    "drug_identifiers": {
+      "chembl_id": "CHEMBL25",
+      "pubchem_cid": "2244",
+      "name": "Aspirin",
+      "synonyms": ["Acetylsalicylic acid", "ASA", "Ecotrin", "Empirin"],
+      "smiles": "CC(=O)OC1=CC=CC=C1C(=O)O",
+      "canonical_smiles": "CC(=O)Oc1ccccc1C(=O)O",
+      "inchi_key": "BSYNRYMUTXBXSQ-UHFFFAOYSA-N",
+      "formula": "C9H8O4"
+    },
+    "evidence": [
+      {
+        "source": "PubChem",
+        "entity_type": "drug",
+        "entity_id": "PUBCHEM:CID2244",
+        "entity_name": "Aspirin",
+        "relation": "has_chemical_property",
+        "object_id": "CHEMBL:CHEMBL25",
+        "confidence": 1.0,
+        "evidence_type": "chemical_structure",
+        "source_version": "2026.03",
+        "metadata": {
+          "iupac_name": "2-acetyloxybenzoic acid",
+          "exact_mass": 180.0423
+        }
+      },
+      {
+        "source": "ChEMBL",
+        "entity_type": "target",
+        "entity_id": "CHEMBL:CHEMBL221",
+        "entity_name": "Prostaglandin G/H synthase 1 (PTGS1 / COX-1)",
+        "relation": "inhibits",
+        "object_id": "CHEMBL:CHEMBL25",
+        "confidence": 0.98,
+        "evidence_type": "bioassay",
+        "source_version": "v33",
+        "metadata": {
+          "mechanism": "Irreversible acetylation of Ser529",
+          "ic50_um": 4.5
+        }
+      },
+      {
+        "source": "ChEMBL",
+        "entity_type": "target",
+        "entity_id": "CHEMBL:CHEMBL230",
+        "entity_name": "Prostaglandin G/H synthase 2 (PTGS2 / COX-2)",
+        "relation": "inhibits",
+        "object_id": "CHEMBL:CHEMBL25",
+        "confidence": 0.92,
+        "evidence_type": "bioassay",
+        "source_version": "v33",
+        "metadata": {
+          "mechanism": "Acetylation of Ser516",
+          "ic50_um": 28.0
+        }
+      },
+      {
+        "source": "UniProt",
+        "entity_type": "protein",
+        "entity_id": "UNIPROT:P23219",
+        "entity_name": "Prostaglandin G/H synthase 1 (PTGS1)",
+        "relation": "targets",
+        "object_id": "CHEMBL:CHEMBL25",
+        "confidence": 0.96,
+        "evidence_type": "curated_protein_database",
+        "source_version": "2026_01",
+        "metadata": {
+          "gene_symbol": "PTGS1",
+          "pathway": "Platelet thromboxane synthesis inhibition"
+        }
+      },
+      {
+        "source": "OpenTargets",
+        "entity_type": "pathway",
+        "entity_id": "OPENTARGETS:REACT_111",
+        "entity_name": "Prostanoid biosynthesis & Gastric mucosal protection",
+        "relation": "participates_in_pathway",
+        "object_id": "CHEMBL:CHEMBL25",
+        "confidence": 0.91,
+        "evidence_type": "pathway_annotation",
+        "source_version": "24.03",
+        "metadata": {
+          "disease_association": "Cardiovascular prophylaxis / Gastric ulceration"
+        }
+      },
+      {
+        "source": "SIDER",
+        "entity_type": "adverse_effect",
+        "entity_id": "SIDER:UMLS:C0038358",
+        "entity_name": "Gastric Ulceration",
+        "relation": "associated_with_adverse_effect",
+        "object_id": "CHEMBL:CHEMBL25",
+        "confidence": 0.93,
+        "evidence_type": "clinical_side_effect",
+        "source_version": "4.1",
+        "metadata": {
+          "meddra_id": "10017772",
+          "target_organ": "Gastrointestinal",
+          "severity": "High",
+          "mechanism": "Loss of cytoprotective PGE2 and direct mucosal irritation"
+        }
+      },
+      {
+        "source": "SIDER",
+        "entity_type": "adverse_effect",
+        "entity_id": "SIDER:UMLS:C0017181",
+        "entity_name": "Gastrointestinal Hemorrhage",
+        "relation": "associated_with_adverse_effect",
+        "object_id": "CHEMBL:CHEMBL25",
+        "confidence": 0.89,
+        "evidence_type": "clinical_side_effect",
+        "source_version": "4.1",
+        "metadata": {
+          "meddra_id": "10017955",
+          "target_organ": "Gastrointestinal",
+          "severity": "Critical"
+        }
+      },
+      {
+        "source": "PubMed",
+        "entity_type": "paper",
+        "entity_id": "PMID:12437648",
+        "entity_name": "Cyclooxygenase-1 and cyclooxygenase-2 selective inhibitors: molecular basis of action and adverse gastrointestinal effects",
+        "relation": "reported_in_literature",
+        "object_id": "CHEMBL:CHEMBL25",
+        "confidence": 0.94,
+        "evidence_type": "peer_reviewed_literature",
+        "source_version": "2002",
+        "metadata": {
+          "journal": "Gastroenterology",
+          "year": 2002,
+          "key_finding": "COX-1 inhibition suppresses gastric mucosal prostaglandins leading to mucosal injury and bleeding."
+        }
+      }
+    ]
+  },
+  "CHEMBL521": {
+    "drug_identifiers": {
+      "chembl_id": "CHEMBL521",
+      "pubchem_cid": "3672",
+      "name": "Ibuprofen",
+      "synonyms": ["Advil", "Motrin", "Nurofen", "Brufen"],
+      "smiles": "CC(C)CC1=CC=C(C=C1)C(C)C(=O)O",
+      "canonical_smiles": "CC(C)Cc1ccc(C(C)C(=O)O)cc1",
+      "inchi_key": "HEFNNWSXXWATRW-UHFFFAOYSA-N",
+      "formula": "C13H18O2"
+    },
+    "evidence": [
+      {
+        "source": "PubChem",
+        "entity_type": "drug",
+        "entity_id": "PUBCHEM:CID3672",
+        "entity_name": "Ibuprofen",
+        "relation": "has_chemical_property",
+        "object_id": "CHEMBL:CHEMBL521",
+        "confidence": 1.0,
+        "evidence_type": "chemical_structure",
+        "source_version": "2026.03",
+        "metadata": {
+          "iupac_name": "2-[4-(2-methylpropyl)phenyl]propanoic acid",
+          "exact_mass": 206.1307
+        }
+      },
+      {
+        "source": "ChEMBL",
+        "entity_type": "target",
+        "entity_id": "CHEMBL:CHEMBL221",
+        "entity_name": "Prostaglandin G/H synthase 1 (PTGS1 / COX-1)",
+        "relation": "inhibits",
+        "object_id": "CHEMBL:CHEMBL521",
+        "confidence": 0.92,
+        "evidence_type": "bioassay",
+        "source_version": "v33",
+        "metadata": {
+          "ic50_um": 5.0
+        }
+      },
+      {
+        "source": "ChEMBL",
+        "entity_type": "target",
+        "entity_id": "CHEMBL:CHEMBL230",
+        "entity_name": "Prostaglandin G/H synthase 2 (PTGS2 / COX-2)",
+        "relation": "inhibits",
+        "object_id": "CHEMBL:CHEMBL521",
+        "confidence": 0.90,
+        "evidence_type": "bioassay",
+        "source_version": "v33",
+        "metadata": {
+          "ic50_um": 10.0
+        }
+      },
+      {
+        "source": "UniProt",
+        "entity_type": "protein",
+        "entity_id": "UNIPROT:P23219",
+        "entity_name": "Prostaglandin G/H synthase 1",
+        "relation": "targets",
+        "object_id": "CHEMBL:CHEMBL521",
+        "confidence": 0.92,
+        "evidence_type": "curated_protein_database",
+        "source_version": "2026_01",
+        "metadata": {
+          "gene_symbol": "PTGS1"
+        }
+      },
+      {
+        "source": "SIDER",
+        "entity_type": "adverse_effect",
+        "entity_id": "SIDER:UMLS:C0035078",
+        "entity_name": "Renal Impairment",
+        "relation": "associated_with_adverse_effect",
+        "object_id": "CHEMBL:CHEMBL521",
+        "confidence": 0.84,
+        "evidence_type": "clinical_side_effect",
+        "source_version": "4.1",
+        "metadata": {
+          "meddra_id": "10000806",
+          "target_organ": "Kidney",
+          "severity": "Moderate / High",
+          "mechanism": "Decreased renal prostaglandin-mediated vasodilatation causing reduced GFR"
+        }
+      },
+      {
+        "source": "SIDER",
+        "entity_type": "adverse_effect",
+        "entity_id": "SIDER:UMLS:C0013395",
+        "entity_name": "Dyspepsia",
+        "relation": "associated_with_adverse_effect",
+        "object_id": "CHEMBL:CHEMBL521",
+        "confidence": 0.82,
+        "evidence_type": "clinical_side_effect",
+        "source_version": "4.1",
+        "metadata": {
+          "meddra_id": "10013946",
+          "target_organ": "Gastrointestinal",
+          "severity": "Mild / Moderate"
+        }
+      },
+      {
+        "source": "PubMed",
+        "entity_type": "paper",
+        "entity_id": "PMID:10477265",
+        "entity_name": "Renal effects of nonsteroidal anti-inflammatory drugs",
+        "relation": "reported_in_literature",
+        "object_id": "CHEMBL:CHEMBL521",
+        "confidence": 0.90,
+        "evidence_type": "peer_reviewed_literature",
+        "source_version": "1999",
+        "metadata": {
+          "journal": "American Journal of Kidney Diseases",
+          "year": 1999,
+          "key_finding": "NSAID inhibition of renal prostaglandins decreases renal perfusion pressure in susceptible patients."
+        }
+      }
+    ]
+  },
+  "CHEMBL53": {
+    "drug_identifiers": {
+      "chembl_id": "CHEMBL53",
+      "pubchem_cid": "31703",
+      "name": "Doxorubicin",
+      "synonyms": ["Adriamycin", "Hydroxydaunorubicin", "Doxil"],
+      "smiles": "COC1=C(C(=O)C2=C(C1=O)C(=CC3=C2C(=O)C4=C(C3=O)C(=CC=C4)O)O)C(=O)CO",
+      "canonical_smiles": "COC1=C(C(=O)C2=C(C1=O)C(=CC3=C2C(=O)C4=C(C3=O)C(=CC=C4)O)O)C(=O)CO",
+      "inchi_key": "AOJJSUZBOXZQNB-VTUSCUGFSA-N",
+      "formula": "C27H29NO11"
+    },
+    "evidence": [
+      {
+        "source": "PubChem",
+        "entity_type": "drug",
+        "entity_id": "PUBCHEM:CID31703",
+        "entity_name": "Doxorubicin",
+        "relation": "has_chemical_property",
+        "object_id": "CHEMBL:CHEMBL53",
+        "confidence": 1.0,
+        "evidence_type": "chemical_structure",
+        "source_version": "2026.03",
+        "metadata": {
+          "iupac_name": "(8S,10S)-10-[(2R,4S,5S,6S)-4-amino-5-hydroxy-6-methyloxan-2-yl]oxy-6,8,11-trihydroxy-8-(2-hydroxyacetyl)-1-methoxy-9,10-dihydro-7H-tetracene-5,12-dione",
+          "exact_mass": 543.174
+        }
+      },
+      {
+        "source": "ChEMBL",
+        "entity_type": "target",
+        "entity_id": "CHEMBL:CHEMBL214",
+        "entity_name": "DNA topoisomerase 2-alpha (TOP2A)",
+        "relation": "inhibits",
+        "object_id": "CHEMBL:CHEMBL53",
+        "confidence": 0.96,
+        "evidence_type": "bioassay",
+        "source_version": "v33",
+        "metadata": {
+          "ic50_um": 2.1,
+          "mechanism": "DNA intercalation and Topoisomerase II complex poisoning"
+        }
+      },
+      {
+        "source": "ChEMBL",
+        "entity_type": "target",
+        "entity_id": "CHEMBL:CHEMBL216",
+        "entity_name": "DNA topoisomerase 2-beta (TOP2B)",
+        "relation": "inhibits",
+        "object_id": "CHEMBL:CHEMBL53",
+        "confidence": 0.94,
+        "evidence_type": "bioassay",
+        "source_version": "v33",
+        "metadata": {
+          "ic50_um": 3.4,
+          "note": "Critical driver of cardiomyocyte DNA double-strand breaks"
+        }
+      },
+      {
+        "source": "UniProt",
+        "entity_type": "protein",
+        "entity_id": "UNIPROT:Q02880",
+        "entity_name": "DNA topoisomerase 2-beta (TOP2B)",
+        "relation": "targets",
+        "object_id": "CHEMBL:CHEMBL53",
+        "confidence": 0.95,
+        "evidence_type": "curated_protein_database",
+        "source_version": "2026_01",
+        "metadata": {
+          "gene_symbol": "TOP2B",
+          "cellular_location": "Nucleus / Mitochondria",
+          "pathway": "Mitochondrial biogenesis disruption & ROS generation"
+        }
+      },
+      {
+        "source": "OpenTargets",
+        "entity_type": "pathway",
+        "entity_id": "OPENTARGETS:REACT_34",
+        "entity_name": "DNA Damage Response & Mitochondrial Dysfunction",
+        "relation": "participates_in_pathway",
+        "object_id": "CHEMBL:CHEMBL53",
+        "confidence": 0.93,
+        "evidence_type": "pathway_annotation",
+        "source_version": "24.03",
+        "metadata": {
+          "disease_association": "Cardiomyopathy / Heart Failure"
+        }
+      },
+      {
+        "source": "SIDER",
+        "entity_type": "adverse_effect",
+        "entity_id": "SIDER:UMLS:C0878544",
+        "entity_name": "Cardiomyopathy",
+        "relation": "associated_with_adverse_effect",
+        "object_id": "CHEMBL:CHEMBL53",
+        "confidence": 0.97,
+        "evidence_type": "clinical_side_effect",
+        "source_version": "4.1",
+        "metadata": {
+          "meddra_id": "10007636",
+          "target_organ": "Heart",
+          "severity": "Critical",
+          "frequency": "Cumulative dose-dependent (>450 mg/m2)"
+        }
+      },
+      {
+        "source": "SIDER",
+        "entity_type": "adverse_effect",
+        "entity_id": "SIDER:UMLS:C0018802",
+        "entity_name": "Congestive Heart Failure",
+        "relation": "associated_with_adverse_effect",
+        "object_id": "CHEMBL:CHEMBL53",
+        "confidence": 0.92,
+        "evidence_type": "clinical_side_effect",
+        "source_version": "4.1",
+        "metadata": {
+          "meddra_id": "10010331",
+          "target_organ": "Heart",
+          "severity": "Critical"
+        }
+      },
+      {
+        "source": "PubMed",
+        "entity_type": "paper",
+        "entity_id": "PMID:22080981",
+        "entity_name": "Topoisomerase 2-beta mediates cardiotoxicity of anthracyclines",
+        "relation": "reported_in_literature",
+        "object_id": "CHEMBL:CHEMBL53",
+        "confidence": 0.97,
+        "evidence_type": "peer_reviewed_literature",
+        "source_version": "2011",
+        "metadata": {
+          "journal": "Nature Medicine",
+          "year": 2011,
+          "key_finding": "Cardiomyocyte Top2b deletion prevents doxorubicin-induced DNA double-strand breaks, mitochondrial dysfunction, and heart failure."
+        }
+      }
+    ]
+  }
+}

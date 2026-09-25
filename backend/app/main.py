@@ -5,10 +5,21 @@ from pathlib import Path
 from tempfile import NamedTemporaryFile
 from typing import List, Optional
 
-from fastapi import FastAPI, File, Form, HTTPException, Query, Response, UploadFile, status
+from fastapi import (
+    FastAPI,
+    File,
+    Form,
+    HTTPException,
+    Path as FastApiPath,
+    Query,
+    Response,
+    UploadFile,
+    status,
+)
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
+from app.data_ingestion import fetch_drug_biomedical_data
 from app.molecular_processing import (
     load_molecule_from_file,
     process_molecule,
@@ -19,6 +30,8 @@ from app.molecular_processing import (
 )
 from app.schemas import (
     DemoDrugItem,
+    DrugEvidenceQuery,
+    DrugEvidenceResponse,
     DrugSmilesInput,
     HealthResponse,
     MolecularProcessingResponse,
@@ -53,12 +66,12 @@ app.add_middleware(
 
 @app.get("/")
 def root() -> dict[str, str]:
-    """Root entrypoint returning basic status message."""
+    """Root entrypoint returning system status and active pipeline phases."""
     return {
         "message": "PharmaTwin AI API is running.",
         "status": "healthy",
         "version": settings.APP_VERSION,
-        "phase": "Phase 1: Drug Input + Molecular Evidence Layer",
+        "phase": "Phase 2: Biomedical Data Ingestion and Normalization Layer",
     }
 
 
@@ -101,7 +114,7 @@ def get_demo_drugs() -> List[dict]:
 
 
 # ---------------------------------------------------------
-# SMILES PROCESSING
+# PHASE 1: MOLECULAR PROCESSING ENDPOINTS
 # ---------------------------------------------------------
 
 @app.post(
@@ -135,10 +148,6 @@ def process_drug(
         ) from exc
 
 
-# ---------------------------------------------------------
-# SDF / MOL FILE PROCESSING
-# ---------------------------------------------------------
-
 @app.post(
     "/api/molecular/process-file",
     response_model=MolecularProcessingResponse,
@@ -151,11 +160,7 @@ async def process_drug_file(
     name: Optional[str] = Form(default=None, description="Optional compound common name"),
 ) -> dict:
     """
-    Upload and parse an SDF (.sdf, .sd) or MOL (.mol) file:
-    - Safely handles temporary file streaming and cleanup
-    - Parses 3D or 2D molecular structure via RDKit suppliers
-    - Standardizes chemical graph to canonical SMILES and InChI identifiers
-    - Calculates 9 molecular descriptors and 2048-bit Morgan fingerprint
+    Upload and parse an SDF (.sdf, .sd) or MOL (.mol) file.
     """
     if not file.filename:
         raise HTTPException(
@@ -220,10 +225,6 @@ async def process_drug_file(
             Path(temp_path).unlink(missing_ok=True)
 
 
-# ---------------------------------------------------------
-# 2D MOLECULAR IMAGE RENDERING ENDPOINTS
-# ---------------------------------------------------------
-
 @app.get(
     "/api/molecular/render-image",
     summary="Render 2D molecular depiction as PNG or SVG",
@@ -236,7 +237,6 @@ def render_drug_image_get(
 ) -> Response:
     """
     Renders 2D depiction of a chemical molecule for frontend display.
-    Supports PNG binary stream and SVG vector markup.
     """
     try:
         mol = validate_smiles(smiles)
@@ -278,4 +278,61 @@ def render_drug_image_post(
         width=width,
         height=height,
         format=format,
+    )
+
+
+# ---------------------------------------------------------
+# PHASE 2: BIOMEDICAL DATA INGESTION ENDPOINTS
+# ---------------------------------------------------------
+
+@app.post(
+    "/api/evidence/drug/{drug_id}",
+    response_model=DrugEvidenceResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Ingest and normalize multi-source biomedical evidence for a drug",
+)
+def ingest_drug_evidence_post(
+    drug_id: str = FastApiPath(..., description="Target drug identifier (e.g. CHEMBL112, Acetaminophen)"),
+    query: Optional[DrugEvidenceQuery] = None,
+) -> dict:
+    """
+    Fuses multi-source biomedical evidence (PubChem, ChEMBL, UniProt, OpenTargets, SIDER, PubMed)
+    for a target drug candidate:
+    - Resolves duplicate entities & merges confidence
+    - Attaches complete provenance and timestamps
+    - Checks and updates local persistent cache
+    - Operates offline in DEMO_MODE with authentic curated pharmacological data
+    """
+    smiles = query.smiles if query else None
+    name = query.name if query else None
+    force_refresh = query.force_refresh if query else False
+
+    return fetch_drug_biomedical_data(
+        drug_id=drug_id,
+        smiles=smiles,
+        name=name,
+        force_refresh=force_refresh,
+    )
+
+
+@app.get(
+    "/api/evidence/drug/{drug_id}",
+    response_model=DrugEvidenceResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Retrieve biomedical evidence for a drug (GET query)",
+)
+def ingest_drug_evidence_get(
+    drug_id: str = FastApiPath(..., description="Target drug identifier (e.g. CHEMBL112, Acetaminophen)"),
+    smiles: Optional[str] = Query(default=None, description="Optional SMILES string"),
+    name: Optional[str] = Query(default=None, description="Optional drug name"),
+    force_refresh: bool = Query(default=False, description="Bypass local cache"),
+) -> dict:
+    """
+    GET query endpoint for biomedical evidence retrieval.
+    """
+    return fetch_drug_biomedical_data(
+        drug_id=drug_id,
+        smiles=smiles,
+        name=name,
+        force_refresh=force_refresh,
     )

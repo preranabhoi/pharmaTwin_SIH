@@ -196,3 +196,61 @@ def test_api_render_image_invalid_smiles(client):
     response = client.get("/api/molecular/render-image", params={"smiles": "INVALID_SMILES_123"})
     assert response.status_code == 400
     assert "Invalid SMILES" in response.json()["detail"]
+
+
+# ---------------------------------------------------------
+# 5. Phase 2: Biomedical Evidence Ingestion Endpoints
+# ---------------------------------------------------------
+
+def test_api_ingest_evidence_post_chembl112(client):
+    """Test POST /api/evidence/drug/CHEMBL112 returns normalized evidence."""
+    response = client.post(
+        "/api/evidence/drug/CHEMBL112",
+        json={"force_refresh": True},
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["drug_id"] == "CHEMBL112"
+    assert data["drug_name"] == "Acetaminophen"
+    assert len(data["evidence"]) >= 8
+    assert data["summary"]["total_evidence_count"] >= 8
+    assert data["status"]["valid"] is True
+
+    # Verify provenance on records
+    for ev in data["evidence"]:
+        assert ev["source"] in ("PubChem", "ChEMBL", "UniProt", "OpenTargets", "SIDER", "PubMed")
+        assert "retrieved_at" in ev
+        assert "entity_type" in ev
+
+
+def test_api_ingest_evidence_post_by_name(client):
+    """Test POST /api/evidence/drug/aspirin resolves common name."""
+    response = client.post(
+        "/api/evidence/drug/aspirin",
+        json={"force_refresh": True},
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["drug_id"] == "CHEMBL25"
+    assert data["drug_name"] == "Aspirin"
+    assert data["summary"]["adverse_effect_count"] > 0
+
+
+def test_api_ingest_evidence_get_chembl53(client):
+    """Test GET /api/evidence/drug/CHEMBL53 (Doxorubicin cardiotoxicity evidence)."""
+    response = client.get("/api/evidence/drug/CHEMBL53")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["drug_id"] == "CHEMBL53"
+    assert "Doxorubicin" in data["drug_name"]
+    assert any(e["entity_type"] == "adverse_effect" for e in data["evidence"])
+
+
+def test_api_ingest_evidence_unknown_drug(client):
+    """Test POST /api/evidence/drug/CHEMBL999999 returns empty evidence with informative message."""
+    response = client.post("/api/evidence/drug/CHEMBL999999")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["drug_id"] == "CHEMBL999999"
+    assert data["evidence"] == []
+    assert data["summary"]["total_evidence_count"] == 0

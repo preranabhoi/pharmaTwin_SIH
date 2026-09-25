@@ -5,11 +5,10 @@
 ---
 
 > ### ⚠️ Research Scope & Boundaries Disclaimer
-> - **Research & Decision-Support Prototype**: PharmaTwin AI is designed exclusively for exploratory pharmacological research and computational modeling.
-> - **Molecular Feature Extraction Only**: Phase 1 provides standardized chemical representations, topological descriptors, and fingerprints. **Molecular descriptors themselves do not constitute clinical toxicity predictions or clinical risk scores.**
+> - **Research & Decision-Support Prototype**: PharmaTwin AI is designed exclusively for exploratory pharmacological research, multi-source evidence fusion, and computational modeling.
 > - **NOT Clinical Diagnostics**: It is **not** a clinical diagnostic tool or medical device.
 > - **NOT Treatment Recommendations**: It does **not** prescribe or recommend patient treatments.
-> - **NOT a Replacement for Clinical Trials**: Computational representations do not replace in vitro, in vivo, or clinical safety trials.
+> - **NOT a Replacement for Clinical Trials**: Computational representations and biomedical knowledge graphs do not substitute for preclinical or clinical safety trials.
 > - **Human Virtual Twin Scope**: The Human Virtual Twin represents an **interactive 3D anatomical visualization of predicted organ-level risk probabilities and mechanistic evidence**, rather than a full physiological whole-body digital simulation.
 
 ---
@@ -23,7 +22,7 @@
 [Phase 1] Molecular Normalization & Evidence Extraction (RDKit Descriptors & Morgan Fingerprints)
    │
    ▼
-[Phase 2] Biomedical Data Integration (PubChem, ChEMBL, UniProt, STRING-DB)
+[Phase 2] Biomedical Data Ingestion (PubChem, ChEMBL, UniProt, OpenTargets, SIDER, PubMed)
    │
    ▼
 [Phase 3] Biomedical Knowledge Graph (Compound-Target-Pathway-Phenotype Networks)
@@ -57,22 +56,23 @@ PharmaTwin/
 │   │   ├── config.py                 # Centralized configuration & environment loader
 │   │   ├── schemas.py                # Pydantic request/response data models
 │   │   ├── molecular_processing.py   # RDKit validation, normalization, descriptors, fingerprints
-│   │   ├── data_ingestion.py         # Biomedical data source integration (Phase 2 Foundation)
+│   │   ├── data_ingestion.py         # Multi-source biomedical adapters & normalization
 │   │   ├── knowledge_graph.py        # Knowledge subgraph constructor (Phase 3 Foundation)
 │   │   ├── evidence_fusion.py        # Multi-modal evidence fusion engine (Phase 4 Foundation)
 │   │   ├── risk_prediction.py        # Toxicity & adverse risk predictor (Phase 5 Foundation)
 │   │   ├── explainability.py         # Toxicophore attribution & explainability (Phase 6 Foundation)
 │   │   ├── organ_mapping.py          # Organ-level risk aggregation (Phase 7 Foundation)
-│   │   └── database.py               # Cache & persistence provider (Foundation)
+│   │   └── database.py               # SQLite local persistent caching engine
 │   ├── data/
 │   │   ├── raw/                      # Raw bioassay data & external data cache
 │   │   ├── processed/                # Normalized features & pre-computed embeddings
-│   │   └── demo/                     # Demo molecules (aspirin.sdf, ibuprofen.mol, sample_drugs.json)
+│   │   └── demo/                     # Demo molecules & authentic biomedical evidence dataset
 │   ├── models/                       # Model checkpoints & serialized weights
 │   ├── tests/
 │   │   ├── __init__.py
 │   │   ├── conftest.py               # Pytest fixtures & FastAPI TestClient
 │   │   ├── test_molecular_processing.py # Unit tests for cheminformatics logic
+│   │   ├── test_data_ingestion.py    # Unit tests for multi-source adapters & normalization
 │   │   └── test_api.py               # FastAPI integration and endpoint tests
 │   └── requirements.txt              # Backend dependencies
 │
@@ -91,28 +91,27 @@ PharmaTwin/
 
 ---
 
-## 🧪 Phase 1: Drug Input + Molecular Evidence Layer
+## 🧪 Implemented Modules
 
-### Supported Inputs
-1. **SMILES Strings**: Arbitrary chemical SMILES (e.g., `CC(=O)NC1=CC=C(O)C=C1`).
-2. **SDF Files**: `.sdf` / `.sd` structure-data files.
-3. **MOL Files**: `.mol` MDL Molfile format.
-4. **Drug Identifiers & Names**: Optional `drug_id` (e.g. `CHEMBL112`) and compound `name`.
+### Phase 1: Drug Input + Molecular Evidence Layer
+- **Input Formats**: SMILES strings, `.sdf` structure files, `.mol` connection tables, and optional Drug IDs/names.
+- **Normalization**: Canonical SMILES, IUPAC InChI, InChIKey, Hill Molecular Formula, Atom counts.
+- **Descriptors**: 9 physicochemical descriptors (Molecular Weight, LogP, TPSA, HBD, HBA, Rotatable Bonds, Heavy Atom Count, Ring Count, Aromatic Ring Count).
+- **Fingerprints**: 2048-bit Morgan circular fingerprints ($\text{radius}=2$, $\text{ECFP4}$ equivalent).
+- **2D Depictions**: Real-time vector SVG and binary PNG rendering.
 
-### Extracted Molecular Evidence
-- **Normalization & Identifiers**: Canonical SMILES, IUPAC InChI, InChIKey, Hill Molecular Formula, Atom Counts.
-- **Physicochemical Descriptors**:
-  - Molecular Weight ($g/mol$)
-  - Wildman-Crippen Partition Coefficient ($\text{LogP}$)
-  - Topological Polar Surface Area ($\text{TPSA}$ in $\text{Å}^2$)
-  - Hydrogen Bond Donors ($\text{HBD}$)
-  - Hydrogen Bond Acceptors ($\text{HBA}$)
-  - Rotatable Single Bonds
-  - Heavy (Non-Hydrogen) Atom Count
-  - Total Ring Count
-  - Aromatic Ring Count
-- **Molecular Fingerprints**: 2048-bit Morgan circular fingerprints ($\text{radius} = 2$, equivalent to $\text{ECFP4}$).
-- **2D Visual Depictions**: Real-time vector SVG rendering and binary PNG images.
+### Phase 2: Biomedical Data Ingestion & Normalization Layer
+- **Source Adapters**:
+  - `PubChemAdapter`: Chemical properties, compound CIDs, IUPAC nomenclature.
+  - `ChEMBLAdapter`: Bioactivity assays, binding affinities ($IC_{50}$), target mechanisms of action.
+  - `UniProtAdapter`: Curated human protein details, gene symbols, and metabolic enzymes (e.g. CYP2E1, CYP3A4).
+  - `OpenTargetsAdapter`: Disease-target associations and biological pathways.
+  - `SIDERAdapter`: Clinical adverse drug reactions, MedDRA / UMLS concepts, and organ system mappings.
+  - `PubMedAdapter`: Peer-reviewed scientific literature citations and mechanistic findings.
+- **Entity Resolution & Deduplication**: Consolidates duplicate records across adapters, retains maximum confidence scores, and merges contextual metadata.
+- **Provenance Tracking**: Every evidence record includes source database, retrieval timestamp (ISO 8601), version, and evidence type.
+- **Local SQLite Caching**: Persistent local cache in `database.py` prevents redundant network calls.
+- **Offline Demo Mode**: Authentic, non-fabricated curated benchmark dataset for known drugs (Acetaminophen `CHEMBL112`, Aspirin `CHEMBL25`, Ibuprofen `CHEMBL521`, Doxorubicin `CHEMBL53`).
 
 ---
 
@@ -120,104 +119,139 @@ PharmaTwin/
 
 | Method | Endpoint | Description |
 |---|---|---|
-| `GET` | `/` | API status and root greeting |
-| `GET` | `/health` | Health check endpoint with version info |
-| `GET` | `/api/molecular/demo-drugs` | Pre-loaded benchmark molecules for rapid evaluation |
-| `POST` | `/api/molecular/process` | Processes SMILES into standardized molecular evidence |
-| `POST` | `/api/molecular/process-file` | Parses `.sdf` or `.mol` file and returns molecular evidence |
-| `GET` | `/api/molecular/render-image` | Generates 2D molecular image (`png` or `svg`) via query parameters |
-| `POST` | `/api/molecular/render-image` | Generates 2D molecular image from JSON body |
+| `GET` | `/` | API status & active phase metadata |
+| `GET` | `/health` | System health check |
+| `GET` | `/api/molecular/demo-drugs` | Pre-loaded benchmark molecules |
+| `POST` | `/api/molecular/process` | Process SMILES into molecular evidence |
+| `POST` | `/api/molecular/process-file` | Upload and process `.sdf` / `.mol` file |
+| `GET` | `/api/molecular/render-image` | 2D structure depiction (PNG / SVG) |
+| `POST` | `/api/molecular/render-image` | 2D structure depiction from JSON body |
+| `POST` | `/api/evidence/drug/{drug_id}` | Ingest and normalize multi-source biomedical evidence |
+| `GET` | `/api/evidence/drug/{drug_id}` | Retrieve biomedical evidence via GET query |
 
 ---
 
 ## 💻 Example API Calls & Responses
 
-### 1. Process SMILES (POST `/api/molecular/process`)
+### 1. Ingest Multi-Source Biomedical Evidence (POST `/api/evidence/drug/{drug_id}`)
 
 **Request**:
 ```bash
-curl -X POST "http://localhost:8000/api/molecular/process" \
+curl -X POST "http://localhost:8000/api/evidence/drug/CHEMBL112" \
      -H "Content-Type: application/json" \
      -d '{
-       "smiles": "CC(=O)NC1=CC=C(O)C=C1",
-       "drug_id": "CHEMBL112",
-       "name": "Acetaminophen"
+       "force_refresh": false
      }'
 ```
 
 **Standard Response**:
 ```json
 {
-  "drug": {
-    "drug_id": "CHEMBL112",
-    "name": "Acetaminophen",
-    "input_type": "smiles",
-    "input_value": "CC(=O)NC1=CC=C(O)C=C1"
+  "drug_id": "CHEMBL112",
+  "drug_name": "Acetaminophen",
+  "canonical_smiles": "CC(=O)Nc1ccc(O)cc1",
+  "cached": false,
+  "demo_mode": true,
+  "summary": {
+    "total_evidence_count": 12,
+    "sources_contacted": ["PubChem", "ChEMBL", "UniProt", "OpenTargets", "SIDER", "PubMed"],
+    "sources_succeeded": ["PubChem", "ChEMBL", "UniProt", "OpenTargets", "SIDER", "PubMed"],
+    "sources_failed": [],
+    "entity_type_counts": {
+      "drug": 1,
+      "target": 2,
+      "protein": 3,
+      "pathway": 1,
+      "adverse_effect": 3,
+      "paper": 2
+    },
+    "target_count": 5,
+    "adverse_effect_count": 3,
+    "pathway_count": 1,
+    "literature_count": 2
   },
-  "molecule": {
-    "canonical_smiles": "CC(=O)Nc1ccc(O)cc1",
-    "inchi": "InChI=1S/C8H9NO2/c1-6(10)9-7-2-4-8(11)5-3-7/h2-5,11H,1H3,(H,9,10)",
-    "inchi_key": "RZVAJINKPMORJF-UHFFFAOYSA-N",
-    "formula": "C8H9NO2",
-    "num_atoms": 20,
-    "num_heavy_atoms": 11
-  },
-  "descriptors": {
-    "molecular_weight": 151.165,
-    "logp": 1.3506,
-    "tpsa": 49.33,
-    "hbd": 2,
-    "hba": 2,
-    "rotatable_bonds": 1,
-    "heavy_atom_count": 11,
-    "ring_count": 1,
-    "aromatic_ring_count": 1
-  },
-  "fingerprint": {
-    "type": "Morgan",
-    "radius": 2,
-    "size": 2048,
-    "active_bits": 19,
-    "bits": [0, 0, 1, 0, 0, "... 2048 binary bits ..."]
-  },
+  "evidence": [
+    {
+      "source": "ChEMBL",
+      "entity_type": "target",
+      "entity_id": "CHEMBL:CHEMBL221",
+      "entity_name": "Prostaglandin G/H synthase 1 (PTGS1 / COX-1)",
+      "relation": "inhibits",
+      "object_id": "CHEMBL:CHEMBL112",
+      "confidence": 0.85,
+      "evidence_type": "bioassay",
+      "retrieved_at": "2026-09-25T12:00:00Z",
+      "source_version": "v33",
+      "metadata": {
+        "assay_type": "Binding",
+        "ic50_um": 26.0,
+        "organism": "Homo sapiens"
+      }
+    },
+    {
+      "source": "UniProt",
+      "entity_type": "protein",
+      "entity_id": "UNIPROT:P20813",
+      "entity_name": "Cytochrome P450 2E1 (CYP2E1)",
+      "relation": "metabolized_by",
+      "object_id": "CHEMBL:CHEMBL112",
+      "confidence": 0.95,
+      "evidence_type": "metabolic_pathway",
+      "retrieved_at": "2026-09-25T12:00:00Z",
+      "source_version": "2026_01",
+      "metadata": {
+        "gene_symbol": "CYP2E1",
+        "tissue_expression": "Liver (Hepatocytes)",
+        "pathway_note": "Bioactivates acetaminophen into reactive N-acetyl-p-benzoquinone imine (NAPQI)"
+      }
+    },
+    {
+      "source": "SIDER",
+      "entity_type": "adverse_effect",
+      "entity_id": "SIDER:UMLS:C0019202",
+      "entity_name": "Hepatotoxicity",
+      "relation": "associated_with_adverse_effect",
+      "object_id": "CHEMBL:CHEMBL112",
+      "confidence": 0.96,
+      "evidence_type": "clinical_side_effect",
+      "retrieved_at": "2026-09-25T12:00:00Z",
+      "source_version": "4.1",
+      "metadata": {
+        "meddra_id": "10019805",
+        "target_organ": "Liver",
+        "severity": "High / Critical"
+      }
+    },
+    {
+      "source": "PubMed",
+      "entity_type": "paper",
+      "entity_id": "PMID:15214041",
+      "entity_name": "Acetaminophen-induced hepatotoxicity: molecular mechanisms and clinical implications",
+      "relation": "reported_in_literature",
+      "object_id": "CHEMBL:CHEMBL112",
+      "confidence": 0.95,
+      "evidence_type": "peer_reviewed_literature",
+      "retrieved_at": "2026-09-25T12:00:00Z",
+      "source_version": "2004",
+      "metadata": {
+        "journal": "Journal of Hepatology",
+        "year": 2004,
+        "key_finding": "NAPQI covalent binding to mitochondrial proteins drives hepatocyte oxidative stress and necrosis."
+      }
+    }
+  ],
   "status": {
     "valid": true,
-    "message": "Molecular evidence extracted successfully."
-  },
-  "valid": true,
-  "canonical_smiles": "CC(=O)Nc1ccc(O)cc1",
-  "input_smiles": "CC(=O)NC1=CC=C(O)C=C1",
-  "fingerprint_size": 2048,
-  "active_fingerprint_bits": 19,
-  "filename": null,
-  "svg_image": "<svg ...></svg>"
+    "message": "Successfully ingested 12 biomedical evidence records."
+  }
 }
-```
-
-### 2. Upload Molecular File (POST `/api/molecular/process-file`)
-
-```bash
-curl -X POST "http://localhost:8000/api/molecular/process-file" \
-     -F "file=@backend/data/demo/aspirin.sdf" \
-     -F "drug_id=CHEMBL25" \
-     -F "name=Aspirin"
-```
-
-### 3. Render 2D Molecular Image (GET `/api/molecular/render-image`)
-
-```bash
-# Render PNG image (350x350)
-curl -o acetaminophen.png "http://localhost:8000/api/molecular/render-image?smiles=CC(=O)NC1=CC=C(O)C=C1&format=png"
-
-# Render SVG markup
-curl "http://localhost:8000/api/molecular/render-image?smiles=CC(=O)NC1=CC=C(O)C=C1&format=svg"
 ```
 
 ---
 
 ## 🚀 Running & Testing
 
-### 1. Setup Backend
+### 1. Setup Backend Environment
 ```bash
 cd backend
 python -m venv .venv
@@ -232,6 +266,7 @@ pip install -r requirements.txt
 
 ### 2. Run Test Suite
 ```bash
+# Run all 41 unit and API integration tests
 pytest tests/ -v
 ```
 
@@ -239,6 +274,5 @@ pytest tests/ -v
 ```bash
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
-Interactive OpenAPI documentation will be accessible at:
 - **Swagger UI**: `http://localhost:8000/docs`
 - **ReDoc**: `http://localhost:8000/redoc`
