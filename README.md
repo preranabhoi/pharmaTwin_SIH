@@ -287,6 +287,31 @@ curl "http://localhost:8000/api/organ-risk/dc6ece59-05c6-4aca-9f92-9a227d879b85"
 
 ---
 
+### Phase 7: Interactive Human Virtual Twin & Evidence Dashboard
+- **Modular 3D Anatomical Twin Engine**:
+  - Built on Three.js WebGL with holographic anatomical silhouette and separate modular 3D organ meshes: `brain` (CNS), `heart` (Cardiovascular), `lung` (Respiratory), `liver` (Hepatic), `kidney` (Renal), and `gastrointestinal` (Digestive).
+  - Dynamic visual state mapping based on AI prediction:
+    - **Low Risk (<35%)**: Emerald Green (`#10B981`)
+    - **Moderate Risk (35–65%)**: Amber Orange (`#F59E0B`)
+    - **High Risk (>65%)**: Crimson Red (`#EF4444`) with real-time sinusoidal pulsing emissive glow.
+- **Rich 3D Viewport Controls & Interaction**:
+  - Full orbit rotation, smooth zoom, and pan.
+  - Interactive Raycaster hover tooltips showing organ name, physiological system, and risk percentage.
+  - Camera anatomical view presets (`Full Body`, `Head / CNS`, `Thorax / Cardio`, `Abdomen / Hepatic`).
+  - Auto-rotate mode and one-click camera reset.
+- **Slide-Over Organ Evidence Inspector Drawer**:
+  - On organ selection, reveals detailed breakdown: Organ system, predicted risk score, prototype category, confidence, and continuous evidence strength.
+  - Answers *"Why Did PharmaTwin Predict This Risk?"* with primary mechanistic pathways.
+  - Traceable Knowledge Graph biological paths (e.g. `Drug -> Target -> Pathway -> Tissue -> Organ`).
+  - Known clinical adverse reactions from SIDER and peer-reviewed literature citations from PubMed.
+- **Strict Scientific Direction of Causality & Workflow**:
+  - Pipeline flow: $\text{Drug Candidate} \rightarrow \text{Multi-Modal AI Prediction} \rightarrow \text{Organ Risk Mapping} \rightarrow \text{Highlighted 3D Virtual Twin}$.
+  - Strictly prevents organ-first manual bias workflows.
+- **Graceful 2D Anatomical SVG Fallback**:
+  - Provides a clean, responsive vector-based 2D anatomical SVG fallback when WebGL is unavailable or when 2D mode is toggled.
+
+---
+
 ## 🚀 Running & Testing
 
 ### 1. Setup Backend Environment
@@ -304,16 +329,18 @@ pip install -r requirements.txt
 
 ### 2. Run Test Suite
 ```bash
-# Run all 107 unit and API integration tests
+# Run all 110 unit and API integration tests
 pytest tests/ -v
 ```
 
-### 3. Start Backend Server
+### 3. Launch Interactive Human Virtual Twin & API
 ```bash
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
-- **Swagger UI**: `http://localhost:8000/docs`
-- **ReDoc**: `http://localhost:8000/redoc`
+- **Interactive 3D Virtual Twin App**: `http://localhost:8000/app` or `http://localhost:8000/twin`
+- **Interactive API Documentation (Swagger UI)**: `http://localhost:8000/docs`
+- **ReDoc Technical Schema Reference**: `http://localhost:8000/redoc`
+
 
 
 

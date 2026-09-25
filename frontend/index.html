@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PharmaTwin AI — Interactive Human Virtual Twin</title>
+  <meta name="description" content="Interactive 3D Human Virtual Twin for visualizing AI-derived organ-level drug risk predictions and multi-source biomedical evidence fusion.">
+  <link rel="stylesheet" href="index.css">
+  
+  <!-- Three.js CDN -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+</head>
+<body>
+
+  <!-- Top Navigation -->
+  <nav class="navbar">
+    <div class="nav-brand">
+      <div class="brand-icon">🧬</div>
+      <div>
+        <div class="brand-title">PharmaTwin AI</div>
+      </div>
+      <span class="brand-badge">Human Virtual Twin</span>
+    </div>
+
+    <div class="nav-status">
+      <div class="system-pill">
+        <span class="status-dot"></span>
+        <span id="api-status-text">Phase 7: 3D Visualization Active</span>
+      </div>
+      <button class="btn-ctrl" id="btn-toggle-view-mode" title="Toggle 3D WebGL vs 2D SVG fallback">
+        <span id="view-mode-icon">🔄</span>
+        <span id="view-mode-text">2D Fallback</span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- Mandatory Scientific Disclaimer Banner -->
+  <div class="disclaimer-banner">
+    <span>⚠️</span>
+    <span><strong>Research-Grade Decision-Support Prototype:</strong> The Human Virtual Twin is an interactive 3D visualization that maps predicted organ-level risk. It is <strong>NOT</strong> a complete physiological digital twin, clinical diagnostic tool, or treatment recommendation system.</span>
+  </div>
+
+  <!-- Main Container -->
+  <main class="app-container">
+
+    <!-- Left Column: 3D Virtual Twin Viewport -->
+    <section class="twin-viewport-card" aria-label="3D Human Virtual Twin Viewport">
+      <div class="viewport-header">
+        <div class="viewport-title">
+          <span>🧍</span>
+          <span>Human Virtual Twin Viewport</span>
+          <span id="active-twin-compound-badge" class="badge-risk low" style="margin-left: 0.5rem; display: none;">Compound Loaded</span>
+        </div>
+        <div class="viewport-controls">
+          <button class="btn-ctrl" id="btn-auto-rotate" title="Toggle 3D continuous rotation">
+            <span>🔄</span> Auto-Rotate
+          </button>
+          <button class="btn-ctrl" id="btn-reset-cam" title="Reset camera to full body perspective">
+            <span>🎯</span> Reset View
+          </button>
+        </div>
+      </div>
+
+      <!-- 3D Canvas Viewport Container -->
+      <div class="canvas-container" id="twin-viewport-container">
+        <!-- WebGL 3D Canvas Container -->
+        <div id="twin-canvas-host" style="width: 100%; height: 100%;"></div>
+
+        <!-- 2D SVG Anatomical Fallback (hidden by default) -->
+        <div id="svg-fallback-container" class="svg-fallback-container" style="display: none;">
+          <svg viewBox="0 0 400 700" width="100%" height="100%" style="max-height: 520px;">
+            <!-- Body Silhouette -->
+            <path d="M 200 40 C 225 40 240 60 240 90 C 240 120 225 140 200 140 C 175 140 160 120 160 90 C 160 60 175 40 200 40 Z" fill="rgba(14, 165, 233, 0.12)" stroke="#38bdf8" stroke-width="1.5" />
+            <path d="M 185 140 L 180 170 L 130 190 L 105 320 L 125 325 L 145 230 L 155 350 L 150 560 L 175 560 L 190 380 L 200 380 L 210 380 L 225 560 L 250 560 L 245 350 L 255 230 L 275 325 L 295 320 L 270 190 L 220 170 L 215 140 Z" fill="rgba(14, 165, 233, 0.08)" stroke="#38bdf8" stroke-width="1.5" />
+
+            <!-- Brain -->
+            <g id="svg-brain" class="svg-organ" data-organ="brain">
+              <ellipse cx="200" cy="85" rx="28" ry="24" fill="#10b981" opacity="0.9" />
+              <text x="200" y="90" text-anchor="middle" fill="#ffffff" font-size="11" font-weight="700">BRAIN</text>
+            </g>
+
+            <!-- Lungs -->
+            <g id="svg-lung" class="svg-organ" data-organ="lung">
+              <path d="M 172 210 C 150 220 150 260 170 270 C 185 270 185 220 172 210 Z" fill="#10b981" opacity="0.85" />
+              <path d="M 228 210 C 250 220 250 260 230 270 C 215 270 215 220 228 210 Z" fill="#10b981" opacity="0.85" />
+              <text x="200" y="245" text-anchor="middle" fill="#ffffff" font-size="10" font-weight="700">LUNGS</text>
+            </g>
+
+            <!-- Heart -->
+            <g id="svg-heart" class="svg-organ" data-organ="heart">
+              <circle cx="192" cy="245" r="18" fill="#10b981" opacity="0.95" />
+              <text x="192" y="249" text-anchor="middle" fill="#ffffff" font-size="10" font-weight="700">HEART</text>
+            </g>
+
+            <!-- Liver -->
+            <g id="svg-liver" class="svg-organ" data-organ="liver">
+              <polygon points="210,285 245,295 235,325 195,315" fill="#10b981" opacity="0.9" />
+              <text x="220" y="310" text-anchor="middle" fill="#ffffff" font-size="10" font-weight="700">LIVER</text>
+            </g>
+
+            <!-- Kidneys -->
+            <g id="svg-kidney" class="svg-organ" data-organ="kidney">
+              <ellipse cx="175" cy="335" rx="10" ry="15" fill="#10b981" opacity="0.9" />
+              <ellipse cx="225" cy="335" rx="10" ry="15" fill="#10b981" opacity="0.9" />
+              <text x="200" y="340" text-anchor="middle" fill="#ffffff" font-size="10" font-weight="700">KIDNEYS</text>
+            </g>
+
+            <!-- Gastrointestinal -->
+            <g id="svg-gastrointestinal" class="svg-organ" data-organ="gastrointestinal">
+              <rect x="180" y="360" width="40" height="35" rx="6" fill="#10b981" opacity="0.9" />
+              <text x="200" y="382" text-anchor="middle" fill="#ffffff" font-size="10" font-weight="700">GI TRACT</text>
+            </g>
+          </svg>
+        </div>
+
+        <!-- Camera Presets HUD -->
+        <div class="hud-camera-presets">
+          <button class="btn-ctrl active" data-preset="all">Full Body</button>
+          <button class="btn-ctrl" data-preset="head">Head / CNS</button>
+          <button class="btn-ctrl" data-preset="thorax">Thorax / Cardio</button>
+          <button class="btn-ctrl" data-preset="abdomen">Abdomen / Hepatic</button>
+        </div>
+
+        <!-- Risk Legend HUD -->
+        <div class="hud-legend">
+          <div class="legend-title">Organ Risk State</div>
+          <div class="legend-items">
+            <div class="legend-item">
+              <span class="legend-indicator low"></span>
+              <span>Low (&lt;35%)</span>
+            </div>
+            <div class="legend-item">
+              <span class="legend-indicator mod"></span>
+              <span>Moderate (35-65%)</span>
+            </div>
+            <div class="legend-item">
+              <span class="legend-indicator high"></span>
+              <span>High (&gt;65%)</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Interactive Raycast Hover Tooltip -->
+        <div id="twin-hud-tooltip" class="hud-tooltip"></div>
+      </div>
+
+      <!-- Footer Quick Inspection Bar -->
+      <div style="padding: 0.75rem 1.25rem; background: rgba(13, 17, 26, 0.9); border-top: 1px solid var(--border-subtle); display: flex; justify-content: space-between; align-items: center;">
+        <div style="font-size: 0.8rem; color: var(--text-secondary);">
+          <span>Selected Organ: </span>
+          <strong id="footer-selected-organ-name" style="color: #fff;">None (Click an organ to inspect)</strong>
+        </div>
+        <button class="btn-ctrl" id="btn-open-drawer" style="display: none;">
+          <span>🔍</span> View Evidence Details
+        </button>
+      </div>
+    </section>
+
+    <!-- Right Column: Drug Input & Multi-Organ Dashboard -->
+    <section class="dashboard-panel" aria-label="Risk Prediction Controls and Organ Risk Breakdown">
+      
+      <!-- Drug Input & Execution Card -->
+      <div class="card">
+        <div class="card-title">
+          <span>🧪 Candidate Drug Evaluation</span>
+          <span style="font-size: 0.75rem; font-family: var(--font-mono); color: var(--text-muted);">Pipeline: Input → Fusion → Twin</span>
+        </div>
+
+        <!-- Demo Benchmark Buttons -->
+        <div class="input-group">
+          <label class="input-label">Quick Benchmark Demo Drugs:</label>
+          <div class="demo-buttons">
+            <button class="btn-demo active" data-drug="acetaminophen" data-smiles="CC(=O)Nc1ccc(O)cc1">Acetaminophen</button>
+            <button class="btn-demo" data-drug="aspirin" data-smiles="CC(=O)Oc1ccccc1C(=O)O">Aspirin</button>
+            <button class="btn-demo" data-drug="ibuprofen" data-smiles="CC(C)Cc1ccc(cc1)C(C)C(=O)O">Ibuprofen</button>
+            <button class="btn-demo" data-drug="doxorubicin" data-smiles="COc1cccc2c1C(=O)c3c(O)c4c(c(O)c3C2=O)C[C@@](O)(C(=O)CO)C[C@@H]4O[C@H]5C[C@H](N)[C@H](O)[C@H](C)O5">Doxorubicin</button>
+          </div>
+        </div>
+
+        <!-- Custom SMILES Input -->
+        <div class="input-group">
+          <label class="input-label" for="input-smiles">SMILES Representation:</label>
+          <input type="text" id="input-smiles" class="text-input" value="CC(=O)Nc1ccc(O)cc1" placeholder="e.g. CC(=O)Nc1ccc(O)cc1">
+        </div>
+
+        <!-- Drug Name / ID -->
+        <div class="input-group">
+          <label class="input-label" for="input-drug-name">Compound Identifier (Optional):</label>
+          <input type="text" id="input-drug-name" class="text-input" value="Acetaminophen" placeholder="e.g. Acetaminophen">
+        </div>
+
+        <!-- Model Selection -->
+        <div class="input-group">
+          <label class="input-label" for="select-model">Risk Inference Engine:</label>
+          <select id="select-model" class="select-input">
+            <option value="random_forest" selected>Calibrated Random Forest (Default)</option>
+            <option value="logistic_regression">Logistic Regression (ElasticNet)</option>
+            <option value="ensemble">Multi-Model Evidence Ensemble</option>
+          </select>
+        </div>
+
+        <!-- Predict Action Button -->
+        <button id="btn-predict-risk" class="btn-primary">
+          <span>⚡</span>
+          <span id="btn-predict-text">Run AI Risk Prediction &amp; Update Twin</span>
+        </button>
+
+        <!-- Prediction Summary Output -->
+        <div id="prediction-summary-box" class="prediction-summary-box" style="display: none;">
+          <div class="summary-metric">
+            <span class="label">Overall Risk</span>
+            <span id="summary-risk-score" class="value">--%</span>
+          </div>
+          <div class="summary-metric">
+            <span class="label">Category</span>
+            <span id="summary-risk-category" class="value"><span class="badge-risk low">--</span></span>
+          </div>
+          <div class="summary-metric">
+            <span class="label">Confidence</span>
+            <span id="summary-confidence" class="value">--%</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Multi-Organ Risk Grid Card -->
+      <div class="card">
+        <div class="card-title">
+          <span>🫀 Multi-Organ Toxicity Breakdown</span>
+          <span style="font-size: 0.75rem; color: var(--text-muted);">Click card to focus 3D Twin</span>
+        </div>
+
+        <div class="organ-grid" id="organ-cards-container">
+          <!-- Populated dynamically by app.js -->
+        </div>
+      </div>
+
+      <!-- Global Feature Attribution (SHAP) Card -->
+      <div class="card" id="shap-summary-card" style="display: none;">
+        <div class="card-title">
+          <span>📊 Top Predictive Drivers (SHAP)</span>
+          <span style="font-size: 0.75rem; color: var(--text-muted);">Feature Contribution</span>
+        </div>
+        <div id="shap-features-list" style="display: flex; flex-direction: column; gap: 0.5rem;">
+          <!-- Populated dynamically by app.js -->
+        </div>
+      </div>
+
+    </section>
+  </main>
+
+  <!-- Slide-Over Organ Evidence Inspector Drawer -->
+  <aside id="inspector-drawer" class="inspector-drawer" aria-label="Organ Evidence Inspector Drawer">
+    <div class="drawer-header">
+      <div>
+        <div id="drawer-organ-name" class="drawer-title">Organ Name</div>
+        <div id="drawer-organ-system" style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 2px;">Physiological System</div>
+      </div>
+      <button id="btn-close-drawer" class="btn-close" title="Close Drawer">&times;</button>
+    </div>
+
+    <div class="drawer-content">
+      
+      <!-- Risk Metrics Box -->
+      <div class="prediction-summary-box" style="margin-top: 0;">
+        <div class="summary-metric">
+          <span class="label">Organ Risk</span>
+          <span id="drawer-risk-score" class="value" style="font-size: 1.15rem;">--%</span>
+        </div>
+        <div class="summary-metric">
+          <span class="label">Category</span>
+          <span id="drawer-risk-category" class="value"><span class="badge-risk low">--</span></span>
+        </div>
+        <div class="summary-metric">
+          <span class="label">Evidence Volume</span>
+          <span id="drawer-evidence-tier" class="value" style="font-size: 0.95rem; font-weight: 600; color: var(--accent-sky);">--</span>
+        </div>
+      </div>
+
+      <!-- "Why this risk?" Primary Mechanisms -->
+      <div>
+        <div class="section-title">🔍 Why Did PharmaTwin Predict This Risk?</div>
+        <div id="drawer-mechanisms-container" style="display: flex; flex-direction: column; gap: 0.4rem;">
+          <!-- Populated dynamically -->
+        </div>
+      </div>
+
+      <!-- Supporting Knowledge Graph Paths -->
+      <div>
+        <div class="section-title">🧬 Traceable Knowledge Graph Paths</div>
+        <div id="drawer-paths-container">
+          <!-- Populated dynamically -->
+        </div>
+      </div>
+
+      <!-- Clinical Adverse Effects (SIDER) -->
+      <div>
+        <div class="section-title">💊 Known Clinical Adverse Reactions (SIDER)</div>
+        <div id="drawer-adverse-container" style="display: flex; flex-wrap: wrap; gap: 0.4rem;">
+          <!-- Populated dynamically -->
+        </div>
+      </div>
+
+      <!-- Supporting Peer-Reviewed Literature (PubMed) -->
+      <div>
+        <div class="section-title">📚 Supporting Scientific Literature</div>
+        <div id="drawer-literature-container">
+          <!-- Populated dynamically -->
+        </div>
+      </div>
+
+      <!-- Causality Notice -->
+      <div style="background: rgba(14, 165, 233, 0.08); border: 1px solid var(--border-accent); border-radius: var(--radius-sm); padding: 0.75rem; font-size: 0.75rem; color: var(--text-secondary); line-height: 1.4;">
+        <strong>Scientific Boundary Notice:</strong> Predictions represent statistical and multi-source evidence fusion hypotheses. They highlight biological vulnerability and do not establish proven clinical causality.
+      </div>
+
+    </div>
+  </aside>
+
+  <!-- Application Logic -->
+  <script type="module" src="app.js"></script>
+</body>
+</html>

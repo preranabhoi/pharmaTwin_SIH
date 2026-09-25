@@ -17,6 +17,8 @@ from fastapi import (
     status,
 )
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 
 from app.config import settings
 from app.database import get_risk_prediction
@@ -78,8 +80,11 @@ app.add_middleware(
 
 
 # ---------------------------------------------------------
-# ROOT & HEALTH ENDPOINTS
+# ROOT, HEALTH & VIRTUAL TWIN FRONTEND ENDPOINTS
 # ---------------------------------------------------------
+
+FRONTEND_DIR = Path(__file__).resolve().parent.parent.parent / "frontend"
+
 
 @app.get("/")
 def root() -> dict[str, str]:
@@ -88,8 +93,26 @@ def root() -> dict[str, str]:
         "message": "PharmaTwin AI API is running.",
         "status": "healthy",
         "version": settings.APP_VERSION,
-        "phase": "Phase 6: Organ Risk Mapping & Anatomical Localization",
+        "phase": "Phase 7: Interactive Human Virtual Twin & Risk Intelligence",
     }
+
+
+@app.get("/twin", include_in_schema=True, summary="Serve interactive 3D Human Virtual Twin web application")
+@app.get("/app", include_in_schema=True, summary="Serve interactive PharmaTwin AI web dashboard")
+def serve_virtual_twin():
+    """Serves the interactive Phase 7 3D Human Virtual Twin UI."""
+    index_path = FRONTEND_DIR / "index.html"
+    if index_path.exists():
+        return FileResponse(index_path)
+    raise HTTPException(
+        status_code=status.HTTP_404_NOT_FOUND,
+        detail="Frontend index.html not found.",
+    )
+
+
+# Mount static assets if frontend directory exists
+if FRONTEND_DIR.exists():
+    app.mount("/static", StaticFiles(directory=FRONTEND_DIR), name="static")
 
 
 @app.get("/health", response_model=HealthResponse)

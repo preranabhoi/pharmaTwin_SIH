@@ -511,4 +511,43 @@ def test_api_organ_risk_not_found(client):
     assert "not found" in response.json()["detail"].lower()
 
 
+# ---------------------------------------------------------
+# PHASE 7: HUMAN VIRTUAL TWIN & DASHBOARD UI TESTS
+# ---------------------------------------------------------
+
+def test_api_virtual_twin_routes(client):
+    """Test GET /twin and GET /app serve the interactive Virtual Twin frontend."""
+    for path in ["/twin", "/app"]:
+        res = client.get(path)
+        assert res.status_code == 200
+        assert "PharmaTwin AI" in res.text
+        assert "Human Virtual Twin" in res.text
+        assert "twin-viewport-container" in res.text or "twin-canvas-host" in res.text
+
+
+def test_api_virtual_twin_static_assets(client):
+    """Test static files for the 3D Virtual Twin are served successfully."""
+    css_res = client.get("/static/index.css")
+    assert css_res.status_code == 200
+    assert "twin-viewport-card" in css_res.text
+
+    twin_js_res = client.get("/static/virtual_twin.js")
+    assert twin_js_res.status_code == 200
+    assert "HumanVirtualTwin" in twin_js_res.text
+
+    app_js_res = client.get("/static/app.js")
+    assert app_js_res.status_code == 200
+    assert "PharmaTwinApp" in app_js_res.text
+
+
+def test_api_root_phase_7(client):
+    """Test GET / reflects Phase 7 active status."""
+    res = client.get("/")
+    assert res.status_code == 200
+    data = res.json()
+    assert "Phase 7" in data["phase"]
+    assert "Human Virtual Twin" in data["phase"]
+
+
+
 
