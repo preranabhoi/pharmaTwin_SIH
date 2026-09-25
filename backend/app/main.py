@@ -20,6 +20,11 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
 from app.data_ingestion import fetch_drug_biomedical_data
+from app.knowledge_graph import (
+    build_drug_subgraph,
+    find_mechanistic_paths,
+    search_graph,
+)
 from app.molecular_processing import (
     load_molecule_from_file,
     process_molecule,
@@ -33,8 +38,12 @@ from app.schemas import (
     DrugEvidenceQuery,
     DrugEvidenceResponse,
     DrugSmilesInput,
+    GraphPathsResponse,
+    GraphSearchResponse,
+    GraphSubgraphResponse,
     HealthResponse,
     MolecularProcessingResponse,
+    ProcessingStatus,
 )
 
 
@@ -71,7 +80,7 @@ def root() -> dict[str, str]:
         "message": "PharmaTwin AI API is running.",
         "status": "healthy",
         "version": settings.APP_VERSION,
-        "phase": "Phase 2: Biomedical Data Ingestion and Normalization Layer",
+        "phase": "Phase 3: Biomedical Knowledge Graph & Path Reasoning",
     }
 
 
@@ -297,11 +306,7 @@ def ingest_drug_evidence_post(
 ) -> dict:
     """
     Fuses multi-source biomedical evidence (PubChem, ChEMBL, UniProt, OpenTargets, SIDER, PubMed)
-    for a target drug candidate:
-    - Resolves duplicate entities & merges confidence
-    - Attaches complete provenance and timestamps
-    - Checks and updates local persistent cache
-    - Operates offline in DEMO_MODE with authentic curated pharmacological data
+    for a target drug candidate.
     """
     smiles = query.smiles if query else None
     name = query.name if query else None
@@ -336,3 +341,72 @@ def ingest_drug_evidence_get(
         name=name,
         force_refresh=force_refresh,
     )
+
+
+# ---------------------------------------------------------
+# PHASE 3: BIOMEDICAL KNOWLEDGE GRAPH ENDPOINTS
+# ---------------------------------------------------------
+
+@app.get(
+    "/api/graph/drug/{drug_id}",
+    response_model=GraphSubgraphResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Retrieve frontend-ready biomedical knowledge subgraph for a drug",
+)
+def get_drug_subgraph(
+    drug_id: str = FastApiPath(..., description="Drug identifier (e.g. CHEMBL112, Aspirin)"),
+    depth: int = Query(default=3, ge=1, le=6, description="Neighborhood traversal depth"),
+    max_nodes: int = Query(default=100, ge=10, le=500, description="Maximum node limit"),
+) -> dict:
+    """
+    Constructs an interactive, frontend-ready biomedical knowledge subgraph for a drug:
+    - Nodes with ontological classifications (Drug, Target, Gene, Pathway, Tissue, Organ, AdverseEffect, Literature)
+    - Directed edges with confidence and source database provenance
+    - Multi-hop causal and adverse reasoning paths
+    """
+    return build_drug_subgraph(drug_id=drug_id, depth=depth, max_nodes=max_nodes)
+
+
+@app.get(
+    "/api/graph/drug/{drug_id}/paths",
+    response_model=GraphPathsResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Extract candidate multi-hop mechanistic paths connecting drug to organs",
+)
+def get_drug_mechanistic_paths(
+    drug_id: str = FastApiPath(..., description="Drug identifier (e.g. CHEMBL112, Acetaminophen)"),
+    target_organ: Optional[str] = Query(default=None, description="Optional filter by organ name (e.g. Liver, Heart)"),
+) -> dict:
+    """
+    Extracts traceable multi-hop paths:
+    - Drug -> Target -> Gene -> Pathway -> Tissue -> Organ
+    - Drug -> AdverseEffect -> Organ
+    """
+    paths = find_mechanistic_paths(drug_id=drug_id, target_organ=target_organ)
+    return {
+        "drug_id": drug_id,
+        "drug_name": drug_id,
+        "total_paths": len(paths),
+        "paths": [p.model_dump() for p in paths],
+        "status": ProcessingStatus(
+            valid=True,
+            message=f"Extracted {len(paths)} candidate mechanistic reasoning paths.",
+        ).model_dump(),
+    }
+
+
+@app.get(
+    "/api/graph/search",
+    response_model=GraphSearchResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Search biomedical knowledge graph nodes by query string and entity type",
+)
+def search_knowledge_graph(
+    query: str = Query(..., min_length=1, description="Keyword search query (e.g. Liver, CYP2E1, COX-1)"),
+    entity_type: Optional[str] = Query(default=None, description="Optional filter by entity type (e.g. Organ, Gene, Target)"),
+    limit: int = Query(default=20, ge=1, le=100, description="Max results limit"),
+) -> dict:
+    """
+    Searches entities across the knowledge graph with keyword matching and degree metrics.
+    """
+    return search_graph(query=query, entity_type=entity_type, limit=limit)

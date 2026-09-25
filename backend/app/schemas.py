@@ -5,13 +5,11 @@ from pydantic import BaseModel, Field
 
 
 # ---------------------------------------------------------
-# Drug Input Schemas (Phase 1)
+# Phase 1: Drug Input & Molecular Evidence Schemas
 # ---------------------------------------------------------
 
 class DrugSmilesInput(BaseModel):
-    """
-    Request body for SMILES-based drug analysis.
-    """
+    """Request body for SMILES-based drug analysis."""
     smiles: str = Field(
         ...,
         min_length=1,
@@ -29,10 +27,6 @@ class DrugSmilesInput(BaseModel):
         examples=["Acetaminophen"],
     )
 
-
-# ---------------------------------------------------------
-# Nested Molecular Evidence Schemas (Phase 1)
-# ---------------------------------------------------------
 
 class DrugInputMetadata(BaseModel):
     """Metadata describing the input source and identifiers."""
@@ -84,9 +78,7 @@ class ProcessingStatus(BaseModel):
 
 
 class MolecularProcessingResponse(BaseModel):
-    """
-    Standard Phase 1 Molecular Evidence Response.
-    """
+    """Standard Phase 1 Molecular Evidence Response."""
     drug: DrugInputMetadata
     molecule: MoleculeIdentifiers
     descriptors: MolecularDescriptors
@@ -132,6 +124,7 @@ EntityType = Literal[
     "tissue",
     "organ",
     "adverse_effect",
+    "disease",
     "paper",
 ]
 
@@ -141,62 +134,17 @@ class NormalizedEvidence(BaseModel):
     Standardized, atomic biomedical evidence record linking entities
     with confidence scores and complete provenance.
     """
-    source: str = Field(
-        ...,
-        description="Biomedical source provider (e.g. PubChem, ChEMBL, UniProt, OpenTargets, SIDER, PubMed)",
-        examples=["ChEMBL"],
-    )
-    entity_type: EntityType = Field(
-        ...,
-        description="Standardized biomedical entity classification",
-        examples=["target"],
-    )
-    entity_id: str = Field(
-        ...,
-        description="Standardized CURIE or identifier (e.g. CHEMBL:CHEMBL221, UNIPROT:P23219, PMID:15214041)",
-        examples=["CHEMBL:CHEMBL221"],
-    )
-    entity_name: str = Field(
-        ...,
-        description="Canonical human-readable name of the entity",
-        examples=["Prostaglandin G/H synthase 1 (PTGS1 / COX-1)"],
-    )
-    relation: str = Field(
-        ...,
-        description="Semantic relationship verb (e.g. inhibits, targets, binds_to, metabolized_by, associated_with_adverse_effect)",
-        examples=["inhibits"],
-    )
-    object_id: str = Field(
-        ...,
-        description="Identifier of the subject/drug object this evidence links to",
-        examples=["CHEMBL:CHEMBL112"],
-    )
-    confidence: float = Field(
-        default=1.0,
-        ge=0.0,
-        le=1.0,
-        description="Normalized confidence score (0.0 to 1.0)",
-        examples=[0.88],
-    )
-    evidence_type: str = Field(
-        ...,
-        description="Methodological category of evidence (e.g. bioassay, curated_protein_database, clinical_side_effect, peer_reviewed_literature)",
-        examples=["bioassay"],
-    )
-    retrieved_at: str = Field(
-        ...,
-        description="ISO 8601 UTC timestamp of retrieval",
-        examples=["2026-09-25T12:00:00Z"],
-    )
-    source_version: Optional[str] = Field(
-        default=None,
-        description="Version or release timestamp of the source database",
-        examples=["v33"],
-    )
-    metadata: Dict[str, Any] = Field(
-        default_factory=dict,
-        description="Contextual metadata (e.g. IC50, organ target, journal, gene symbol)",
-    )
+    source: str = Field(..., description="Biomedical source provider", examples=["ChEMBL"])
+    entity_type: EntityType = Field(..., description="Standardized entity classification", examples=["target"])
+    entity_id: str = Field(..., description="Standardized CURIE or identifier", examples=["CHEMBL:CHEMBL221"])
+    entity_name: str = Field(..., description="Canonical entity name", examples=["PTGS1 / COX-1"])
+    relation: str = Field(..., description="Semantic relationship verb", examples=["inhibits"])
+    object_id: str = Field(..., description="Identifier of the subject/drug object", examples=["CHEMBL:CHEMBL112"])
+    confidence: float = Field(default=1.0, ge=0.0, le=1.0, description="Confidence score (0.0 to 1.0)")
+    evidence_type: str = Field(..., description="Methodological category", examples=["bioassay"])
+    retrieved_at: str = Field(..., description="ISO 8601 UTC timestamp of retrieval")
+    source_version: Optional[str] = Field(default=None, description="Version of source database")
+    metadata: Dict[str, Any] = Field(default_factory=dict, description="Contextual metadata")
 
 
 class EvidenceSummary(BaseModel):
@@ -214,25 +162,10 @@ class EvidenceSummary(BaseModel):
 
 class DrugEvidenceQuery(BaseModel):
     """Request payload for biomedical evidence query."""
-    drug_id: Optional[str] = Field(
-        default=None,
-        description="Drug identifier (e.g., CHEMBL112, PUBCHEM:CID1983)",
-        examples=["CHEMBL112"],
-    )
-    smiles: Optional[str] = Field(
-        default=None,
-        description="SMILES string to resolve compound",
-        examples=["CC(=O)NC1=CC=C(O)C=C1"],
-    )
-    name: Optional[str] = Field(
-        default=None,
-        description="Common drug name",
-        examples=["Acetaminophen"],
-    )
-    force_refresh: bool = Field(
-        default=False,
-        description="Bypass local cache and perform fresh ingestion",
-    )
+    drug_id: Optional[str] = Field(default=None, description="Drug identifier (e.g. CHEMBL112)")
+    smiles: Optional[str] = Field(default=None, description="SMILES string")
+    name: Optional[str] = Field(default=None, description="Common drug name")
+    force_refresh: bool = Field(default=False, description="Bypass local cache")
 
 
 class DrugEvidenceResponse(BaseModel):
@@ -244,4 +177,85 @@ class DrugEvidenceResponse(BaseModel):
     demo_mode: bool = True
     summary: EvidenceSummary
     evidence: List[NormalizedEvidence]
+    status: ProcessingStatus
+
+
+# ---------------------------------------------------------
+# Phase 3: Biomedical Knowledge Graph Schemas
+# ---------------------------------------------------------
+
+class GraphNodeModel(BaseModel):
+    """Knowledge graph node representing a biomedical entity."""
+    id: str = Field(..., description="Unique standardized CURIE identifier (e.g., CHEMBL:CHEMBL112, ORGAN:LIVER)")
+    name: str = Field(..., description="Human-readable label or entity name")
+    type: str = Field(..., description="Entity classification type (Drug, Target, Protein, Gene, Pathway, Tissue, Organ, AdverseEffect, Disease, Literature)")
+    properties: Dict[str, Any] = Field(default_factory=dict, description="Associated attributes and descriptors")
+
+
+class GraphEdgeModel(BaseModel):
+    """Knowledge graph edge representing a directed biomedical relation."""
+    id: str = Field(..., description="Unique edge identifier")
+    source: str = Field(..., description="Source node CURIE identifier")
+    target: str = Field(..., description="Target node CURIE identifier")
+    relation: str = Field(..., description="Relationship semantic verb (TARGETS, INHIBITS, ENCODED_BY, PARTICIPATES_IN, AFFECTS_ORGAN, etc.)")
+    confidence: float = Field(default=1.0, ge=0.0, le=1.0, description="Evidence confidence score (0.0 to 1.0)")
+    source_db: str = Field(default="KnowledgeGraph", description="Originating database source")
+    evidence_type: str = Field(default="curated_graph", description="Type of evidence supporting relation")
+    provenance_id: Optional[str] = Field(default=None, description="Reference provenance ID or PMID")
+    retrieved_at: Optional[str] = Field(default=None, description="ISO timestamp")
+    metadata: Dict[str, Any] = Field(default_factory=dict, description="Detailed assay or mechanism parameters")
+
+
+class GraphPathModel(BaseModel):
+    """Traceable reasoning path from drug to organ or adverse event."""
+    path_id: str = Field(..., description="Unique path identifier")
+    path_type: str = Field(..., description="Path category ('mechanistic_organ_path', 'adverse_phenotype_path', 'pathway_association')")
+    target_organ: Optional[str] = Field(default=None, description="Terminal organ entity if applicable")
+    nodes: List[str] = Field(..., description="Ordered list of node IDs along the path")
+    node_names: List[str] = Field(..., description="Ordered list of human-readable node names")
+    relations: List[str] = Field(..., description="Ordered list of relationship types connecting the nodes")
+    confidence: float = Field(..., description="Aggregated multi-hop confidence score (0.0 to 1.0)")
+    confidence_tier: str = Field(..., description="'high' (>=0.75), 'moderate' (0.50-0.74), or 'low' (<0.50)")
+    description: str = Field(..., description="Human-readable natural language summary of the path")
+
+
+class GraphSubgraphResponse(BaseModel):
+    """Complete frontend-ready knowledge graph response."""
+    drug_id: str
+    drug_name: Optional[str] = None
+    canonical_smiles: Optional[str] = None
+    engine: str = Field(default="InMemoryGraph", description="Graph engine utilized ('InMemoryGraph' or 'Neo4j')")
+    total_nodes: int
+    total_edges: int
+    nodes: List[GraphNodeModel]
+    edges: List[GraphEdgeModel]
+    paths: List[GraphPathModel]
+    evidence_sources: List[str]
+    status: ProcessingStatus
+
+
+class GraphPathsResponse(BaseModel):
+    """Reasoning paths extracted from knowledge graph."""
+    drug_id: str
+    drug_name: Optional[str] = None
+    total_paths: int
+    paths: List[GraphPathModel]
+    status: ProcessingStatus
+
+
+class GraphSearchResultItem(BaseModel):
+    """Single node result for graph search."""
+    id: str
+    name: str
+    type: str
+    degree: int
+    properties: Dict[str, Any] = Field(default_factory=dict)
+
+
+class GraphSearchResponse(BaseModel):
+    """Graph search query results."""
+    query: str
+    entity_type: Optional[str] = None
+    total_results: int
+    results: List[GraphSearchResultItem]
     status: ProcessingStatus

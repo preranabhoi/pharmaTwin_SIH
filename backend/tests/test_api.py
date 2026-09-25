@@ -254,3 +254,78 @@ def test_api_ingest_evidence_unknown_drug(client):
     assert data["drug_id"] == "CHEMBL999999"
     assert data["evidence"] == []
     assert data["summary"]["total_evidence_count"] == 0
+
+
+# ---------------------------------------------------------
+# 6. Phase 3: Biomedical Knowledge Graph Endpoints
+# ---------------------------------------------------------
+
+def test_api_graph_drug_subgraph_chembl112(client):
+    """Test GET /api/graph/drug/CHEMBL112 returns complete subgraph with paths."""
+    response = client.get("/api/graph/drug/CHEMBL112")
+    assert response.status_code == 200
+    data = response.json()
+
+    assert data["drug_id"] == "CHEMBL:CHEMBL112"
+    assert data["drug_name"] == "Acetaminophen"
+    assert data["total_nodes"] >= 8
+    assert data["total_edges"] >= 8
+    assert len(data["nodes"]) == data["total_nodes"]
+    assert len(data["edges"]) == data["total_edges"]
+    assert len(data["paths"]) >= 2
+    assert data["status"]["valid"] is True
+
+    # Check node schema
+    first_node = data["nodes"][0]
+    assert "id" in first_node
+    assert "name" in first_node
+    assert "type" in first_node
+
+    # Check edge schema & provenance
+    first_edge = data["edges"][0]
+    assert "source" in first_edge
+    assert "target" in first_edge
+    assert "relation" in first_edge
+    assert "confidence" in first_edge
+    assert "source_db" in first_edge
+
+
+def test_api_graph_drug_subgraph_by_name_aspirin(client):
+    """Test GET /api/graph/drug/aspirin resolves drug name to subgraph."""
+    response = client.get("/api/graph/drug/aspirin")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["drug_id"] == "CHEMBL:CHEMBL25"
+    assert data["drug_name"] == "Aspirin"
+    assert data["total_nodes"] >= 5
+
+
+def test_api_graph_drug_paths_chembl53(client):
+    """Test GET /api/graph/drug/CHEMBL53/paths returns mechanistic paths to Heart."""
+    response = client.get("/api/graph/drug/CHEMBL53/paths")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["total_paths"] >= 2
+    assert len(data["paths"]) == data["total_paths"]
+    assert any(p["target_organ"] == "Heart" for p in data["paths"])
+
+
+def test_api_graph_search(client):
+    """Test GET /api/graph/search queries nodes across the graph."""
+    response = client.get("/api/graph/search", params={"query": "Liver"})
+    assert response.status_code == 200
+    data = response.json()
+    assert data["total_results"] >= 1
+    assert any(item["name"] == "Liver" for item in data["results"])
+
+
+def test_api_graph_drug_unknown(client):
+    """Test GET /api/graph/drug/UNKNOWN_DRUG returns empty graph structure."""
+    response = client.get("/api/graph/drug/UNKNOWN_DRUG")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["total_nodes"] == 0
+    assert data["total_edges"] == 0
+    assert data["nodes"] == []
+    assert data["edges"] == []
+    assert data["paths"] == []
