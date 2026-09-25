@@ -163,7 +163,24 @@ PharmaTwin/
 - **Preventing Misleading Explanations**:
   - Explicitly distinguishes:
     $$\text{“feature contributed to statistical model prediction (SHAP)”} \quad \neq \quad \text{“biological mechanism caused clinical toxicity”}$$
-  - Mandatory disclaimer clarifying that statistical feature attributions are computational sensitivities and not claims of proven biological causality.
+### Phase 6: Organ Risk Mapping & Anatomical Localization
+- **Core Biological Trace**:
+  $$\text{Drug} \rightarrow \text{Target} \rightarrow \text{Gene / Protein} \rightarrow \text{Pathway} \rightarrow \text{Tissue} \rightarrow \text{Organ}$$
+- **Organ Ontology & Anatomical Systems**:
+  - **Brain** (Central Nervous System — Head & Cranium)
+  - **Heart** (Cardiovascular System — Thorax / Mediastinum)
+  - **Liver** (Hepatic System — Right Upper Abdominal Quadrant)
+  - **Kidney** (Renal System — Retroperitoneal Space)
+  - **Lung** (Respiratory System — Thoracic Cavity)
+  - **Gastrointestinal Tract** (Digestive System — Abdomen & Pelvis)
+  - **Bone Marrow & Blood** (Hematological & Immune System — Systemic / Skeletal)
+  - **Skin** (Integumentary System — External Surface)
+- **Path-to-Organ Mapping & Aggregation**:
+  - Transparently maps multi-hop knowledge graph paths and SIDER clinical adverse events to anatomical cavities.
+  - Automatically deduplicates records and computes per-organ continuous evidence strength scores and tiers (`Low`, `Medium`, `High`).
+- **Avoiding Overclaiming**:
+  - Organ risk mapping represents potential computational risk signals and biomedical hypotheses for 3D visualization in the Human Virtual Twin.
+  - Mandatory disclaimer: *It is not a clinical diagnosis or treatment recommendation.*
 
 ---
 
@@ -185,17 +202,18 @@ PharmaTwin/
 | `GET` | `/api/graph/search` | Search graph entities by keyword and entity type |
 | `POST` | `/api/risk/predict` | Multi-modal evidence fusion and organ risk prediction |
 | `GET` | `/api/risk/{prediction_id}` | Retrieve audited risk prediction report by UUID |
-| `GET` | `/api/explanations/{prediction_id}` | **Phase 5**: UI-ready SHAP explanation and multi-source evidence traceability report |
+| `GET` | `/api/explanations/{prediction_id}` | UI-ready SHAP explanation and multi-source evidence traceability report |
+| `GET` | `/api/organ-risk/{prediction_id}` | **Phase 6**: Full anatomical organ-level risk profile for 3D Virtual Twin |
 
 ---
 
 ## 💻 Example API Calls & Responses
 
-### 1. Retrieve Explanation & Evidence Traceability Report (GET `/api/explanations/{prediction_id}`)
+### 1. Retrieve Organ Risk Profile (GET `/api/organ-risk/{prediction_id}`)
 
 **Request**:
 ```bash
-curl "http://localhost:8000/api/explanations/dc6ece59-05c6-4aca-9f92-9a227d879b85"
+curl "http://localhost:8000/api/organ-risk/dc6ece59-05c6-4aca-9f92-9a227d879b85"
 ```
 
 **Response**:
@@ -205,95 +223,64 @@ curl "http://localhost:8000/api/explanations/dc6ece59-05c6-4aca-9f92-9a227d879b8
   "drug_id": "CHEMBL112",
   "drug_name": "Acetaminophen",
   "canonical_smiles": "CC(=O)Nc1ccc(O)cc1",
-  "model_used": "random_forest",
-  "overall_risk": 0.8282,
+  "highest_risk_organ": "liver",
+  "overall_risk_score": 0.8282,
   "overall_risk_category": "High",
-  "confidence": 0.9313,
-  "evidence_strength": 1.0,
-  "base_value": 0.7405,
-  "top_features": [
-    {
-      "feature_name": "kg_conf_liver",
-      "feature_value": 0.8482,
-      "contribution": 0.0521,
-      "direction": "increases_risk",
-      "rank": 1,
-      "description": "Knowledge Graph Max Path Confidence (Liver): Confidence of the highest-scoring hepatic path.",
-      "attribution_type": "statistical_feature_contribution"
+  "organs": {
+    "liver": {
+      "organ_id": "liver",
+      "name": "Liver",
+      "system": "Hepatic System",
+      "anatomical_region": "Abdomen (Right Upper Quadrant)",
+      "risk": 0.7559,
+      "category": "High",
+      "confidence": 0.9024,
+      "evidence_strength": "High",
+      "evidence_strength_score": 0.95,
+      "evidence_count": 5,
+      "primary_mechanisms": [
+        "Acetaminophen [METABOLIZED_BY] -> Cytochrome P450 2E1 (CYP2E1) [ENCODED_BY] -> CYP2E1 [PARTICIPATES_IN_PATHWAY] -> NAPQI Bioactivation & Glutathione Depletion [ACTIVE_IN_TISSUE] -> Hepatocytes [PART_OF_ORGAN] -> Liver",
+        "Reported Reaction: Hepatotoxicity",
+        "Reported Reaction: Acute Hepatic Failure"
+      ],
+      "paths": [ ... ],
+      "adverse_effects": [ ... ],
+      "literature_citations": [ ... ]
     },
-    {
-      "feature_name": "adverse_liver_count",
-      "feature_value": 0.5,
-      "contribution": 0.0418,
-      "direction": "increases_risk",
-      "rank": 2,
-      "description": "SIDER Clinical Adverse Hepatic Reactions: Recorded clinical frequency of hepatic adverse events.",
-      "attribution_type": "statistical_feature_contribution"
+    "heart": {
+      "organ_id": "heart",
+      "name": "Heart",
+      "system": "Cardiovascular System",
+      "anatomical_region": "Thorax / Mediastinum",
+      "risk": 0.3201,
+      "category": "Low",
+      "confidence": 0.8720,
+      "evidence_strength": "Medium",
+      "evidence_strength_score": 0.20,
+      "evidence_count": 1,
+      "primary_mechanisms": ["No specific high-affinity heart liability detected"]
     },
-    {
-      "feature_name": "logp_norm",
-      "feature_value": 0.391,
-      "contribution": -0.0182,
-      "direction": "decreases_risk",
-      "rank": 3,
-      "description": "Calculated Octanol-Water Partition Coefficient (LogP): High values increase lipophilicity and membrane accumulation.",
-      "attribution_type": "statistical_feature_contribution"
+    "gastrointestinal": {
+      "organ_id": "gastrointestinal",
+      "name": "Gastrointestinal Tract",
+      "system": "Digestive System",
+      "anatomical_region": "Abdomen & Pelvis",
+      "risk": 0.4512,
+      "category": "Moderate",
+      "confidence": 0.8195,
+      "evidence_strength": "Medium",
+      "evidence_strength_score": 0.42,
+      "evidence_count": 2,
+      "primary_mechanisms": ["Secondary mucosal prostaglandin pathway interaction"]
     }
-  ],
-  "supporting_paths": [
-    {
-      "path_id": "path_CHEMBL:CHEMBL112_ORGAN:LIVER_1",
-      "path_type": "mechanistic_organ_path",
-      "target_organ": "Liver",
-      "nodes": ["CHEMBL:CHEMBL112", "UNIPROT:P20813", "GENE:CYP2E1", "PATHWAY:NAPQI_HEPATOTOX", "TISSUE:HEPATOCYTES", "ORGAN:LIVER"],
-      "node_names": ["Acetaminophen", "Cytochrome P450 2E1 (CYP2E1)", "CYP2E1", "NAPQI Bioactivation & Glutathione Depletion", "Hepatocytes", "Liver"],
-      "relations": ["METABOLIZED_BY", "ENCODED_BY", "PARTICIPATES_IN_PATHWAY", "ACTIVE_IN_TISSUE", "PART_OF_ORGAN"],
-      "confidence": 0.8482,
-      "confidence_tier": "high",
-      "description": "Acetaminophen [METABOLIZED_BY] -> Cytochrome P450 2E1 (CYP2E1) [ENCODED_BY] -> CYP2E1 [PARTICIPATES_IN_PATHWAY] -> NAPQI Bioactivation & Glutathione Depletion [ACTIVE_IN_TISSUE] -> Hepatocytes [PART_OF_ORGAN] -> Liver"
-    }
-  ],
-  "supporting_evidence": [
-    {
-      "source": "SIDER",
-      "entity_type": "adverse_effect",
-      "entity_id": "UMLS:C0019202",
-      "entity_name": "Hepatotoxicity",
-      "relation": "ASSOCIATED_WITH_ADVERSE_EFFECT",
-      "confidence": 0.95
-    }
-  ],
-  "supporting_literature": [
-    {
-      "pmid": "18052885",
-      "title": "Acetaminophen hepatotoxicity: an overview of molecular mechanisms",
-      "journal": "Toxicology Letters",
-      "year": 2008
-    }
-  ],
-  "similarity_matches": [
-    {
-      "reference_drug_id": "CHEMBL112",
-      "reference_drug_name": "Acetaminophen",
-      "tanimoto_similarity": 1.0,
-      "known_organ_risks": ["Liver (Hepatotoxicity / NAPQI necrosis)", "Kidney (Tubular strain)"],
-      "disclaimer": "Molecular similarity informs prior evidence retrieval, but does not prove clinical toxicity."
-    }
-  ],
-  "quality_metadata": {
-    "evidence_count": 21,
-    "evidence_source_diversity": ["ChEMBL", "OpenTargets", "PubChem", "PubMed", "SIDER", "UniProt"],
-    "confidence": 0.9313,
-    "evidence_sufficiency": {
-      "is_sufficient": true,
-      "flag_for_review": false,
-      "review_reasons": []
-    },
-    "base_value": 0.7405,
-    "prediction_value": 0.8282
   },
-  "causality_distinction": "Statistical feature attributions (SHAP) quantify how input variables shifted the statistical model score relative to the background baseline. They do NOT constitute proven biological causality. Traceable biological hypotheses are represented separately via Knowledge Graph mechanistic paths.",
-  "disclaimer": "Research-grade decision-support prototype. Predictions and feature attributions are computational hypotheses and must be experimentally validated. Not a clinical diagnostic or treatment recommendation system.",
+  "supported_organs": ["brain", "heart", "liver", "kidney", "lung", "gastrointestinal", "blood", "skin"],
+  "evidence_sufficiency": {
+    "is_sufficient": true,
+    "flag_for_review": false,
+    "review_reasons": []
+  },
+  "disclaimer": "Research-grade prototype. Organ risk mapping represents potential risk signals derived from computational models and biomedical evidence fusion. It is not a clinical diagnosis or treatment recommendation.",
   "created_at": "2026-09-25T21:43:16.000000+00:00"
 }
 ```
@@ -317,7 +304,7 @@ pip install -r requirements.txt
 
 ### 2. Run Test Suite
 ```bash
-# Run all 94 unit and API integration tests
+# Run all 107 unit and API integration tests
 pytest tests/ -v
 ```
 
@@ -327,5 +314,6 @@ uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 - **Swagger UI**: `http://localhost:8000/docs`
 - **ReDoc**: `http://localhost:8000/redoc`
+
 
 

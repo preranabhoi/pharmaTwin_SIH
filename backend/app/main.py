@@ -35,6 +35,7 @@ from app.molecular_processing import (
     validate_smiles,
 )
 from app.explainability import generate_prediction_explanation
+from app.organ_mapping import build_full_organ_risk_profile
 from app.risk_prediction import predict_drug_risk
 from app.schemas import (
     DemoDrugItem,
@@ -48,6 +49,7 @@ from app.schemas import (
     GraphSubgraphResponse,
     HealthResponse,
     MolecularProcessingResponse,
+    OrganRiskMappingResponse,
     PredictionExplanationResponse,
     ProcessingStatus,
 )
@@ -86,7 +88,7 @@ def root() -> dict[str, str]:
         "message": "PharmaTwin AI API is running.",
         "status": "healthy",
         "version": settings.APP_VERSION,
-        "phase": "Phase 5: Explainability and Evidence Traceability Engine",
+        "phase": "Phase 6: Organ Risk Mapping & Anatomical Localization",
     }
 
 
@@ -508,5 +510,46 @@ def get_prediction_explanation(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to generate explanation report: {str(exc)}",
         ) from exc
+
+
+# ---------------------------------------------------------
+# PHASE 6: ORGAN RISK MAPPING ENDPOINTS
+# ---------------------------------------------------------
+
+@app.get(
+    "/api/organ-risk/{prediction_id}",
+    response_model=OrganRiskMappingResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Retrieve full anatomical organ-level risk profile & evidence linkages for 3D Virtual Twin",
+)
+def get_organ_risk_mapping(
+    prediction_id: str = FastApiPath(..., description="Target prediction UUID"),
+) -> OrganRiskMappingResponse:
+    """
+    Structures predictions and evidence across physiological organ systems:
+    - Brain (Central Nervous System)
+    - Heart (Cardiovascular System)
+    - Liver (Hepatic System)
+    - Kidney (Renal System)
+    - Lung (Respiratory System)
+    - Gastrointestinal Tract (Digestive System)
+    - Bone Marrow & Blood (Hematological System)
+    - Skin (Integumentary System)
+
+    Aggregates multi-hop knowledge graph paths, SIDER clinical adverse effects, and literature.
+    """
+    try:
+        return build_full_organ_risk_profile(prediction_id)
+    except ValueError as val_err:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(val_err),
+        ) from val_err
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to build organ risk mapping: {str(exc)}",
+        ) from exc
+
 
 

@@ -467,3 +467,48 @@ def test_api_explain_prediction_not_found(client):
     assert "not found" in response.json()["detail"].lower()
 
 
+# ---------------------------------------------------------
+# PHASE 6: ORGAN RISK MAPPING API TESTS
+# ---------------------------------------------------------
+
+def test_api_organ_risk_acetaminophen(client):
+    """Test GET /api/organ-risk/{prediction_id} returns structured multi-organ risk profiles."""
+    payload = {
+        "drug_id": "CHEMBL112",
+        "smiles": "CC(=O)NC1=CC=C(O)C=C1",
+        "name": "Acetaminophen",
+        "model_type": "random_forest",
+    }
+    post_res = client.post("/api/risk/predict", json=payload)
+    assert post_res.status_code == 200
+    pred_id = post_res.json()["prediction_id"]
+
+    organ_res = client.get(f"/api/organ-risk/{pred_id}")
+    assert organ_res.status_code == 200
+    data = organ_res.json()
+
+    assert data["prediction_id"] == pred_id
+    assert data["drug_id"] == "CHEMBL112"
+    assert data["highest_risk_organ"] == "liver"
+
+    # Check 8 physiological systems exist
+    expected_organs = {"brain", "heart", "liver", "kidney", "lung", "gastrointestinal", "blood", "skin"}
+    assert expected_organs.issubset(set(data["organs"].keys()))
+
+    liver = data["organs"]["liver"]
+    assert liver["name"] == "Liver"
+    assert liver["category"] == "High"
+    assert liver["evidence_strength"] in ("Medium", "High")
+    assert len(liver["primary_mechanisms"]) > 0
+
+    assert "not a clinical diagnosis" in data["disclaimer"].lower()
+
+
+def test_api_organ_risk_not_found(client):
+    """Test GET /api/organ-risk/{prediction_id} returns 404 for unknown prediction UUID."""
+    response = client.get("/api/organ-risk/unknown-pred-uuid-99999")
+    assert response.status_code == 404
+    assert "not found" in response.json()["detail"].lower()
+
+
+

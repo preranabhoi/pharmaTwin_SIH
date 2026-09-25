@@ -412,3 +412,51 @@ class PredictionExplanationResponse(BaseModel):
     )
     created_at: str = Field(..., description="ISO 8601 UTC timestamp")
 
+
+# ---------------------------------------------------------
+# Phase 6: Organ Risk Mapping Schemas
+# ---------------------------------------------------------
+
+class OrganDetailRiskModel(BaseModel):
+    """Rich organ-level risk assessment and evidence aggregation for 3D Virtual Twin."""
+    organ_id: str = Field(..., description="Standardized organ key (e.g. 'heart', 'liver', 'kidney', 'gastrointestinal')")
+    name: str = Field(..., description="Human-readable organ name (e.g. 'Heart', 'Liver')")
+    system: str = Field(..., description="Physiological organ system (e.g. 'Cardiovascular System', 'Hepatic System')")
+    anatomical_region: str = Field(..., description="Anatomical location/cavity for 3D viewport rendering")
+    risk: float = Field(..., ge=0.0, le=1.0, description="Predicted risk probability score (0.0 to 1.0)")
+    category: str = Field(..., description="Prototype category: 'Low', 'Moderate', 'High'")
+    confidence: float = Field(..., ge=0.0, le=1.0, description="Confidence certainty score (0.0 to 1.0)")
+    evidence_strength: str = Field(..., description="Evidence volume tier: 'Low', 'Medium', 'High'")
+    evidence_strength_score: float = Field(..., ge=0.0, le=1.0, description="Normalized continuous evidence strength")
+    evidence_count: int = Field(..., description="Total count of supporting evidence records and paths")
+    primary_mechanisms: List[str] = Field(default_factory=list, description="Mechanistic pathways or known pharmacological risks")
+    paths: List[GraphPathModel] = Field(default_factory=list, description="Traceable Knowledge Graph paths terminating in this organ")
+    adverse_effects: List[Dict[str, Any]] = Field(default_factory=list, description="Clinical SIDER adverse reactions mapped to this organ")
+    literature_citations: List[Dict[str, Any]] = Field(default_factory=list, description="Peer-reviewed literature records supporting this organ toxicity")
+
+
+class OrganRiskMappingResponse(BaseModel):
+    """
+    Standard Phase 6 Organ Risk Mapping Response.
+    Structures multi-modal evidence and risk predictions into physiological organ systems.
+    """
+    prediction_id: str = Field(..., description="Unique prediction UUID")
+    drug_id: str = Field(..., description="Evaluated drug identifier")
+    drug_name: Optional[str] = Field(default=None, description="Compound name")
+    canonical_smiles: Optional[str] = Field(default=None, description="Canonical SMILES representation")
+    highest_risk_organ: str = Field(..., description="Organ key with highest predicted toxicity risk")
+    overall_risk_score: float = Field(..., ge=0.0, le=1.0, description="Predicted overall adverse risk score")
+    overall_risk_category: str = Field(..., description="Overall risk prototype tier: 'Low', 'Moderate', 'High'")
+    organs: Dict[str, OrganDetailRiskModel] = Field(..., description="Organ-level risk mappings across supported systems")
+    supported_organs: List[str] = Field(default_factory=list, description="List of all supported anatomical organ keys")
+    evidence_sufficiency: EvidenceSufficiencyCheck = Field(..., description="Evidence sufficiency check results")
+    disclaimer: str = Field(
+        default=(
+            "Research-grade prototype. Organ risk mapping represents potential risk signals derived from "
+            "computational models and biomedical evidence fusion. It is not a clinical diagnosis or treatment recommendation."
+        ),
+        description="Scientific scope disclaimer",
+    )
+    created_at: str = Field(..., description="ISO 8601 UTC timestamp")
+
+
