@@ -460,3 +460,118 @@ class OrganRiskMappingResponse(BaseModel):
     created_at: str = Field(..., description="ISO 8601 UTC timestamp")
 
 
+# ---------------------------------------------------------
+# Phase 9: Persistent Storage & Auditability Schemas
+# ---------------------------------------------------------
+
+class AuditEventModel(BaseModel):
+    """Immutable audit log event record."""
+    event_id: str = Field(..., description="Unique audit event UUID")
+    timestamp: str = Field(..., description="ISO 8601 UTC timestamp of event occurrence")
+    user_session: str = Field(..., description="User identifier or system execution context")
+    action: str = Field(..., description="Audited operation: DRUG_PROCESSED, PREDICTION_CREATED, etc.")
+    object_type: str = Field(..., description="Entity class: Drug, Molecule, Prediction, etc.")
+    object_id: str = Field(..., description="Target entity primary identifier")
+    model_version: Optional[str] = Field(default=None, description="Active model version during execution")
+    status: str = Field(..., description="Execution outcome: SUCCESS, FAILED, GATED")
+    details: Optional[Dict[str, Any]] = Field(default_factory=dict, description="Structured contextual event payload")
+
+
+class ModelVersionModel(BaseModel):
+    """Registered machine learning model version and metadata record."""
+    id: str = Field(..., description="Unique model version record ID")
+    model_name: str = Field(..., description="Human-readable model name")
+    model_version: str = Field(..., description="Unique version tag (e.g. v1.0.0-rf-calibrated)")
+    feature_version: str = Field(..., description="Input feature schema version (e.g. v1.0.0-multi-modal-32d)")
+    training_dataset_version: str = Field(..., description="Training dataset version tag")
+    hyperparameters: Optional[Dict[str, Any]] = Field(default_factory=dict, description="Model hyperparameter configuration")
+    metrics_summary: Optional[Dict[str, Any]] = Field(default_factory=dict, description="Summary validation metrics")
+    is_active: bool = Field(default=True, description="Whether this version is active for inference")
+    created_at: str = Field(..., description="ISO 8601 UTC timestamp")
+
+
+class AuditTrailResponse(BaseModel):
+    """Complete traceable lineage and audit trail for a prediction."""
+    prediction_id: str = Field(..., description="Target prediction UUID")
+    drug_id: str = Field(..., description="Evaluated drug identifier")
+    model_name: str = Field(..., description="Model architecture used")
+    model_version: str = Field(..., description="Model version tag")
+    feature_version: str = Field(..., description="Feature schema version")
+    training_dataset_version: str = Field(..., description="Training dataset version")
+    created_at: str = Field(..., description="ISO 8601 UTC timestamp")
+    reproducible_chain: List[str] = Field(default_factory=list, description="Ordered pipeline execution milestones")
+    lineage: Dict[str, Any] = Field(..., description="Nested snapshots of Drug, Molecule, Evidence, Graph, Prediction, and Organs")
+    audit_trail: List[AuditEventModel] = Field(default_factory=list, description="Historical audit events linked to this prediction")
+
+
+# ---------------------------------------------------------
+# Phase 10: Model Validation & Research Evaluation Schemas
+# ---------------------------------------------------------
+
+class EvaluationDatasetMetadata(BaseModel):
+    """Metadata and provenance for an evaluation dataset."""
+    dataset_name: str = Field(..., description="Formal dataset title")
+    source: str = Field(..., description="Biomedical upstream source attribution")
+    version: str = Field(..., description="Dataset version tag")
+    retrieval_date: str = Field(..., description="Retrieval date (YYYY-MM-DD)")
+    total_samples: int = Field(..., description="Total sample cohort count")
+    feature_dimension: int = Field(..., description="Feature vector dimension")
+    feature_version: str = Field(..., description="Feature schema version")
+    split_strategy: str = Field(..., description="Description of train/val/test splitting strategy")
+    supported_ground_truth_organs: List[str] = Field(default_factory=list, description="Organs with validated ground truth labels")
+    exploratory_mapping_organs: List[str] = Field(default_factory=list, description="Organs with heuristic evidence mapping")
+    description: str = Field(..., description="Detailed dataset description")
+
+
+class ModelMetricsModel(BaseModel):
+    """Classification performance metrics computed on isolated test sets."""
+    accuracy: float = Field(..., ge=0.0, le=1.0)
+    precision: float = Field(..., ge=0.0, le=1.0)
+    recall: float = Field(..., ge=0.0, le=1.0)
+    f1_score: float = Field(..., ge=0.0, le=1.0)
+    roc_auc: float = Field(..., ge=0.0, le=1.0)
+    pr_auc: float = Field(..., ge=0.0, le=1.0)
+    brier_score: float = Field(..., ge=0.0, le=1.0)
+    confusion_matrix: Dict[str, int] = Field(..., description="Confusion matrix (tp, tn, fp, fn)")
+
+
+class ModelEvaluationSummary(BaseModel):
+    """Evaluation summary for a single baseline model architecture."""
+    model_name: str = Field(..., description="Model architecture title")
+    model_version: str = Field(..., description="Model version tag")
+    architecture: str = Field(..., description="Formal classifier specification")
+    metrics: ModelMetricsModel = Field(..., description="Computed validation metrics on test split")
+
+
+class ExplainabilityEvaluationMetrics(BaseModel):
+    """Quality and completeness evaluation of the explainability layer."""
+    total_test_predictions_explained: int = Field(..., description="Count of explained test instances")
+    explanation_completeness_rate: float = Field(..., ge=0.0, le=1.0, description="Completeness of feature attributions")
+    feature_attribution_method: str = Field(..., description="Attribution framework (SHAP)")
+    evidence_linkage_coverage: float = Field(..., ge=0.0, le=1.0, description="Fraction of test cases with linked KG paths")
+    evidence_sufficiency_rate: float = Field(..., ge=0.0, le=1.0, description="Fraction of test cases passing gating sufficiency")
+    causality_distinction: str = Field(..., description="Scope boundary disclaimer")
+
+
+class EvaluationReportResponse(BaseModel):
+    """Full research evaluation report for PharmaTwin risk models."""
+    report_id: str = Field(..., description="Unique evaluation report identifier")
+    dataset_metadata: EvaluationDatasetMetadata = Field(..., description="Dataset provenance and schema")
+    split_type: str = Field(..., description="Split strategy: 'random' or 'temporal'")
+    test_sample_count: int = Field(..., description="Number of evaluated test instances")
+    positive_sample_count: int = Field(..., description="Number of positive toxicity cases in test set")
+    negative_sample_count: int = Field(..., description="Number of negative non-toxic cases in test set")
+    models: Dict[str, ModelEvaluationSummary] = Field(..., description="Evaluation results for evaluated baseline models")
+    organ_level_evaluation: Dict[str, Any] = Field(..., description="Organ-specific ground truth vs prototype evaluations")
+    explainability_evaluation: ExplainabilityEvaluationMetrics = Field(..., description="Explainability and evidence coverage metrics")
+    disclaimer: str = Field(
+        default=(
+            "Research-grade evaluation report. All metrics are computed strictly on isolated test sets. "
+            "Not a clinical diagnostic validation or regulatory efficacy certificate."
+        ),
+        description="Mandatory scientific boundary disclaimer",
+    )
+    created_at: str = Field(..., description="ISO 8601 UTC timestamp")
+
+
+

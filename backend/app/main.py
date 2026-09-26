@@ -21,8 +21,20 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.config import settings
-from app.database import get_risk_prediction
+from app.database import (
+    get_audit_trail,
+    get_model_version,
+    get_risk_prediction,
+    list_audit_events,
+    list_model_versions,
+)
 from app.data_ingestion import fetch_drug_biomedical_data
+from app.evaluation import (
+    ModelEvaluationPipeline,
+    generate_evaluation_csv,
+    generate_human_readable_summary,
+    get_latest_evaluation_report,
+)
 from app.knowledge_graph import (
     build_drug_subgraph,
     find_mechanistic_paths,
@@ -40,16 +52,20 @@ from app.explainability import generate_prediction_explanation
 from app.organ_mapping import build_full_organ_risk_profile
 from app.risk_prediction import predict_drug_risk
 from app.schemas import (
+    AuditEventModel,
+    AuditTrailResponse,
     DemoDrugItem,
     DrugEvidenceQuery,
     DrugEvidenceResponse,
     DrugRiskPredictionRequest,
     DrugRiskPredictionResponse,
     DrugSmilesInput,
+    EvaluationReportResponse,
     GraphPathsResponse,
     GraphSearchResponse,
     GraphSubgraphResponse,
     HealthResponse,
+    ModelVersionModel,
     MolecularProcessingResponse,
     OrganRiskMappingResponse,
     PredictionExplanationResponse,
@@ -125,12 +141,31 @@ def serve_root_js(filename: str):
     js_path = FRONTEND_DIR / f"{filename}.js"
     if js_path.exists():
         return FileResponse(js_path, media_type="application/javascript")
-    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="JavaScript file not found")
+@app.get("/models/{filename}", include_in_schema=False)
+@app.get("/public/models/{filename}", include_in_schema=False)
+@app.get("/static/models/{filename}", include_in_schema=False)
+def serve_glb_model(filename: str):
+    """Directly serve 3D GLB/GLTF anatomical models."""
+    search_paths = [
+        FRONTEND_DIR / "public" / "models" / filename,
+        FRONTEND_DIR / "models" / filename,
+        FRONTEND_DIR / filename,
+    ]
+    for p in search_paths:
+        if p.exists():
+            return FileResponse(p, media_type="model/gltf-binary")
+    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"3D Model file '{filename}' not found.")
 
 
 # Mount static assets if frontend directory exists
 if FRONTEND_DIR.exists():
     app.mount("/static", StaticFiles(directory=FRONTEND_DIR), name="static")
+    if (FRONTEND_DIR / "components").exists():
+        app.mount("/components", StaticFiles(directory=FRONTEND_DIR / "components"), name="components")
+    if (FRONTEND_DIR / "public").exists():
+        app.mount("/public", StaticFiles(directory=FRONTEND_DIR / "public"), name="public")
+    if (FRONTEND_DIR / "models").exists():
+        app.mount("/models", StaticFiles(directory=FRONTEND_DIR / "models"), name="models")
 
 
 @app.get("/health", response_model=HealthResponse)
@@ -591,6 +626,176 @@ def get_organ_risk_mapping(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to build organ risk mapping: {str(exc)}",
         ) from exc
+
+
+# ---------------------------------------------------------
+# PHASE 9: PROVENANCE, AUDITABILITY & MODEL VERSIONING ENDPOINTS
+# ---------------------------------------------------------
+
+@app.get(
+    "/api/audit/trail/{prediction_id}",
+    response_model=AuditTrailResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Retrieve complete reproducible lineage and audit trail for a prediction",
+)
+def get_prediction_audit_trail(
+    prediction_id: str = FastApiPath(..., description="Target prediction UUID to trace"),
+) -> AuditTrailResponse:
+    """
+    Retrieves full reproducible lineage:
+    Drug -> Molecule -> Evidence -> Graph -> Model -> Prediction -> Explanation -> Organ Risk
+    along with historical audit event records.
+    """
+    trail = get_audit_trail(prediction_id)
+    if not trail:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Audit trail for prediction '{prediction_id}' not found.",
+        )
+    return trail
+
+
+@app.get(
+    "/api/audit/events",
+    response_model=List[AuditEventModel],
+    status_code=status.HTTP_200_OK,
+    summary="List immutable audit events with optional filtering",
+)
+def list_system_audit_events(
+    limit: int = Query(default=50, ge=1, le=500, description="Max event records to return"),
+    action: Optional[str] = Query(default=None, description="Filter by action (e.g. PREDICTION_CREATED, DRUG_PROCESSED)"),
+    object_id: Optional[str] = Query(default=None, description="Filter by target object identifier"),
+    status: Optional[str] = Query(default=None, description="Filter by status: SUCCESS, GATED, FAILED"),
+) -> List[dict]:
+    """
+    Lists system audit events for compliance, reproducibility, and monitoring.
+    """
+    return list_audit_events(limit=limit, action=action, object_id=object_id, status=status)
+
+
+@app.get(
+    "/api/models",
+    response_model=List[ModelVersionModel],
+    status_code=status.HTTP_200_OK,
+    summary="List all registered machine learning model versions and metadata",
+)
+def get_model_versions() -> List[dict]:
+    """
+    Returns registered model versions, feature schema tags, and hyperparameters.
+    """
+    return list_model_versions()
+
+
+@app.get(
+    "/api/models/{model_version}",
+    response_model=ModelVersionModel,
+    status_code=status.HTTP_200_OK,
+    summary="Retrieve metadata and parameters for a specific model version",
+)
+def get_single_model_version(
+    model_version: str = FastApiPath(..., description="Unique model version tag (e.g. v1.0.0-rf-calibrated)"),
+) -> dict:
+    """
+    Retrieves detailed metadata for a registered model version.
+    """
+    m = get_model_version(model_version)
+    if not m:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Model version '{model_version}' not found in registry.",
+        )
+    return m
+
+
+# ---------------------------------------------------------
+# PHASE 10: MODEL VALIDATION & RESEARCH EVALUATION ENDPOINTS
+# ---------------------------------------------------------
+
+@app.get(
+    "/api/evaluation/model/{model_version}",
+    response_model=EvaluationReportResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Retrieve authentic evaluation report and validation metrics for a model version",
+)
+def get_model_evaluation_report(
+    model_version: str = FastApiPath(..., description="Target model version (e.g. v1.0.0-rf-calibrated)"),
+) -> EvaluationReportResponse:
+    """
+    Returns authentic, non-fabricated evaluation metrics (Accuracy, Precision, Recall, F1, ROC-AUC, PR-AUC, Confusion Matrix)
+    derived from isolated test cohorts.
+    """
+    report = get_latest_evaluation_report(model_version=model_version)
+    if not report:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Evaluation report for model '{model_version}' not found.",
+        )
+    return report
+
+
+@app.get(
+    "/api/evaluation/latest",
+    response_model=EvaluationReportResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Retrieve the latest comprehensive multi-model validation report",
+)
+def get_latest_evaluation() -> EvaluationReportResponse:
+    """
+    Retrieves the latest comprehensive evaluation report across baseline classifiers.
+    """
+    return get_latest_evaluation_report()
+
+
+@app.post(
+    "/api/evaluation/run",
+    response_model=EvaluationReportResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Execute a reproducible model evaluation run across baseline architectures",
+)
+def execute_model_evaluation(
+    split_type: str = Query(default="random", description="Split strategy: 'random' (70/30) or 'temporal' (split at 2015)"),
+    dataset_version: str = Query(default="v1.2.0-benchmark-tox", description="Dataset version tag to evaluate"),
+) -> EvaluationReportResponse:
+    """
+    Executes fresh benchmark evaluation on isolated test cohorts across Logistic Regression, Random Forest, and Gradient Boosting.
+    """
+    pipeline = ModelEvaluationPipeline(dataset_version=dataset_version)
+    return pipeline.run_evaluation(split_type=split_type)
+
+
+@app.get(
+    "/api/evaluation/report/csv",
+    summary="Export validation metrics table as CSV download",
+)
+def export_evaluation_metrics_csv(
+    model_version: Optional[str] = Query(default=None, description="Optional model version filter"),
+) -> Response:
+    """
+    Generates and returns standard CSV of model validation metrics.
+    """
+    report = get_latest_evaluation_report(model_version=model_version)
+    csv_content = generate_evaluation_csv(report)
+    return Response(
+        content=csv_content,
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=pharmatwin_evaluation_metrics.csv"},
+    )
+
+
+@app.get(
+    "/api/evaluation/report/summary",
+    summary="Export human-readable Markdown summary of model evaluation",
+)
+def export_evaluation_markdown_summary(
+    model_version: Optional[str] = Query(default=None, description="Optional model version filter"),
+) -> Response:
+    """
+    Generates and returns clean scientific Markdown evaluation report.
+    """
+    report = get_latest_evaluation_report(model_version=model_version)
+    md_content = generate_human_readable_summary(report)
+    return Response(content=md_content, media_type="text/markdown")
+
 
 
 

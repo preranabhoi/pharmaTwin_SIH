@@ -314,6 +314,35 @@ def process_molecule(
 
     svg_str = render_molecule_svg(norm_mol) if include_svg else None
 
+    # Persist to database & log audit event (Phase 9)
+    try:
+        from app.database import log_audit_event, save_drug, save_molecule
+        effective_drug_id = drug_id or name or canonical_smiles
+        save_drug(drug_id=effective_drug_id, name=name, canonical_smiles=canonical_smiles)
+        save_molecule(
+            drug_id=effective_drug_id,
+            canonical_smiles=canonical_smiles,
+            inchi=identifiers.get("inchi"),
+            inchikey=identifiers.get("inchikey"),
+            formula=identifiers.get("formula"),
+            descriptors=descriptors,
+            fingerprint_bits=active_bits,
+        )
+        log_audit_event(
+            action="DRUG_PROCESSED",
+            object_type="Molecule",
+            object_id=effective_drug_id,
+            details={
+                "canonical_smiles": canonical_smiles,
+                "input_type": input_type,
+                "formula": identifiers.get("formula"),
+                "molecular_weight": descriptors.get("molecular_weight"),
+                "logp": descriptors.get("logp"),
+            },
+        )
+    except Exception as exc:
+        pass
+
     # Standard nested evidence structure
     drug_metadata = {
         "drug_id": drug_id,

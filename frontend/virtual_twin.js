@@ -1,10 +1,19 @@
 /**
  * PharmaTwin AI — 3D Interactive Human Virtual Twin Engine
  * 
- * Powered by Three.js
- * Visualizes AI-derived organ risk outputs on an interactive 3D anatomical model.
- * Strictly presents computational risk signals, not a clinical diagnostic digital twin.
+ * Powered by Three.js & GLTFLoader
+ * Renders an anatomical human model with spatially aligned internal organs.
+ * Strictly a computational research decision-support visualization, NOT a clinical diagnostic system.
  */
+
+export const ORGAN_MESH_MAP = {
+  brain: ['Brain', 'brain', 'cns', 'cerebrum', 'cerebellum', 'hemisphere'],
+  heart: ['Heart', 'heart', 'cardiac', 'myocardium', 'aorta'],
+  lung: ['Left_Lung', 'Right_Lung', 'LeftLung', 'RightLung', 'Lung', 'lung', 'lungs'],
+  liver: ['Liver', 'liver', 'hepatic'],
+  kidney: ['Left_Kidney', 'Right_Kidney', 'LeftKidney', 'RightKidney', 'Kidney', 'kidney', 'kidneys'],
+  gastrointestinal: ['Stomach', 'Intestine', 'GI_Tract', 'stomach', 'intestine', 'gastrointestinal', 'digestive'],
+};
 
 export class HumanVirtualTwin {
   constructor(containerId, options = {}) {
@@ -22,6 +31,8 @@ export class HumanVirtualTwin {
     this.raycaster = new THREE.Raycaster();
     this.mouse = new THREE.Vector2();
 
+    this.modelRoot = null;
+    this.bodyMesh = null;
     this.organMeshes = {};
     this.organData = {};
     this.hoveredOrgan = null;
@@ -37,332 +48,258 @@ export class HumanVirtualTwin {
   init() {
     if (!this.container) return;
 
-    const width = this.container.clientWidth || 600;
-    const height = this.container.clientHeight || 550;
+    const width = this.container.clientWidth || 360;
+    const height = this.container.clientHeight || 380;
 
     // 1. Scene
     this.scene = new THREE.Scene();
-    this.scene.fog = new THREE.FogExp2(0x07090e, 0.12);
+    this.scene.background = new THREE.Color(0xf8fafc); // Scientific clean light background
 
-    // 2. Camera
-    this.camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 100);
-    this.camera.position.set(0, 1.0, 4.5);
+    // 2. Camera (Framed to show complete human figure from head to feet)
+    this.camera = new THREE.PerspectiveCamera(42, width / height, 0.1, 50);
+    this.camera.position.set(0, 0.95, 2.75);
 
     // 3. Renderer
     this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     this.renderer.setSize(width, height);
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.2;
+    this.renderer.toneMappingExposure = 1.15;
+    this.renderer.shadowMap.enabled = false;
     this.container.appendChild(this.renderer.domElement);
 
-    // 4. Lighting
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
+    // 4. OrbitControls
+    if (typeof THREE.OrbitControls !== 'undefined') {
+      this.controls = new THREE.OrbitControls(this.camera, this.renderer.domElement);
+      this.controls.enableDamping = true;
+      this.controls.dampingFactor = 0.08;
+      this.controls.target.set(0, 0.90, 0); // Center of human body
+      this.controls.minDistance = 0.8;
+      this.controls.maxDistance = 5.0;
+      this.controls.maxPolarAngle = Math.PI / 2 + 0.1; // Don't flip under floor
+      this.controls.autoRotate = this.isAutoRotate;
+      this.controls.autoRotateSpeed = 1.2;
+    }
+
+    // 5. Studio Lighting (Clean, Shadowless Medical Visualization)
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.9);
     this.scene.add(ambientLight);
 
-    const dirLight1 = new THREE.DirectionalLight(0x38bdf8, 2.0);
-    dirLight1.position.set(5, 8, 5);
-    this.scene.add(dirLight1);
+    const keyLight = new THREE.DirectionalLight(0xffffff, 0.7);
+    keyLight.position.set(4, 6, 4);
+    this.scene.add(keyLight);
 
-    const dirLight2 = new THREE.DirectionalLight(0xa855f7, 1.5);
-    dirLight2.position.set(-5, -2, -5);
-    this.scene.add(dirLight2);
+    const fillLight = new THREE.DirectionalLight(0x94a3b8, 0.5);
+    fillLight.position.set(-4, 3, -2);
+    this.scene.add(fillLight);
 
-    const pointLight = new THREE.PointLight(0x06b6d4, 2.5, 8);
-    pointLight.position.set(0, 1.2, 1.5);
-    this.scene.add(pointLight);
+    const rimLight = new THREE.PointLight(0x38bdf8, 0.4, 8);
+    rimLight.position.set(0, 2.2, -1.8);
+    this.scene.add(rimLight);
 
-    // 5. Build Holographic Body & Anatomical Organs
-    this.buildBodySilhouette();
-    this.buildAnatomicalOrgans();
+    // 6. Ground Grid Plate
     this.buildGridFloor();
 
-    // 6. Interaction Listeners
+    // 7. Load GLB Model
+    this.loadGLBModel();
+
+    // 8. Interaction Listeners
     this.bindEvents();
 
-    // 7. Animation Loop
+    // 9. Animation Loop
     this.animate();
   }
 
   buildGridFloor() {
-    const gridHelper = new THREE.GridHelper(6, 24, 0x06b6d4, 0x1e293b);
-    gridHelper.position.y = -1.5;
-    gridHelper.material.opacity = 0.35;
+    const gridHelper = new THREE.GridHelper(3.0, 12, 0xcbd5e1, 0xe2e8f0);
+    gridHelper.position.y = -0.01; // Just beneath feet
+    gridHelper.material.opacity = 0.45;
     gridHelper.material.transparent = true;
     this.scene.add(gridHelper);
   }
 
-  buildBodySilhouette() {
-    const bodyGroup = new THREE.Group();
-    const bodyMat = new THREE.MeshPhysicalMaterial({
-      color: 0x0ea5e9,
-      transparent: true,
-      opacity: 0.12,
-      roughness: 0.2,
-      transmission: 0.7,
-      ior: 1.3,
-      wireframe: false,
-    });
-
-    const wireMat = new THREE.MeshBasicMaterial({
-      color: 0x38bdf8,
-      wireframe: true,
-      transparent: true,
-      opacity: 0.08,
-    });
-
-    // Head
-    const headGeo = new THREE.SphereGeometry(0.38, 24, 24);
-    const head = new THREE.Mesh(headGeo, bodyMat);
-    head.position.set(0, 1.82, 0);
-    head.scale.set(0.9, 1.15, 1.0);
-    bodyGroup.add(head);
-
-    // Neck
-    const neckGeo = new THREE.CylinderGeometry(0.16, 0.18, 0.22, 16);
-    const neck = new THREE.Mesh(neckGeo, bodyMat);
-    neck.position.set(0, 1.48, 0);
-    bodyGroup.add(neck);
-
-    // Torso / Chest
-    const chestGeo = new THREE.CylinderGeometry(0.48, 0.40, 0.85, 24);
-    const chest = new THREE.Mesh(chestGeo, bodyMat);
-    chest.position.set(0, 1.05, 0);
-    chest.scale.set(1.1, 1.0, 0.65);
-    bodyGroup.add(chest);
-
-    // Abdomen & Pelvis
-    const abdomenGeo = new THREE.CylinderGeometry(0.38, 0.44, 0.75, 24);
-    const abdomen = new THREE.Mesh(abdomenGeo, bodyMat);
-    abdomen.position.set(0, 0.4, 0);
-    abdomen.scale.set(1.05, 1.0, 0.65);
-    bodyGroup.add(abdomen);
-
-    // Spine line
-    const spineGeo = new THREE.CylinderGeometry(0.03, 0.03, 1.6, 8);
-    const spineMat = new THREE.MeshBasicMaterial({ color: 0x06b6d4, opacity: 0.3, transparent: true });
-    const spine = new THREE.Mesh(spineGeo, spineMat);
-    spine.position.set(0, 0.85, -0.15);
-    bodyGroup.add(spine);
-
-    // Upper Limbs (Shoulders & Arms)
-    const armMat = bodyMat.clone();
-    armMat.opacity = 0.08;
-    const lArmGeo = new THREE.CylinderGeometry(0.1, 0.08, 1.1, 12);
-    const lArm = new THREE.Mesh(lArmGeo, armMat);
-    lArm.position.set(-0.62, 0.85, 0);
-    lArm.rotation.z = 0.15;
-    bodyGroup.add(lArm);
-
-    const rArm = new THREE.Mesh(lArmGeo, armMat);
-    rArm.position.set(0.62, 0.85, 0);
-    rArm.rotation.z = -0.15;
-    bodyGroup.add(rArm);
-
-    // Lower Limbs (Legs)
-    const legGeo = new THREE.CylinderGeometry(0.14, 0.1, 1.4, 16);
-    const lLeg = new THREE.Mesh(legGeo, armMat);
-    lLeg.position.set(-0.24, -0.65, 0);
-    bodyGroup.add(lLeg);
-
-    const rLeg = new THREE.Mesh(legGeo, armMat);
-    rLeg.position.set(0.24, -0.65, 0);
-    rLeg.add(new THREE.Mesh(legGeo, wireMat));
-    bodyGroup.add(rLeg);
-
-    this.scene.add(bodyGroup);
-  }
-
-  buildAnatomicalOrgans() {
-    const createOrganMaterial = (defaultColor = 0x10b981) => {
-      return new THREE.MeshStandardMaterial({
-        color: defaultColor,
-        emissive: defaultColor,
-        emissiveIntensity: 0.35,
-        roughness: 0.3,
-        metalness: 0.1,
-        transparent: true,
-        opacity: 0.92,
-      });
+  loadGLBModel() {
+    const showLoading = () => {
+      const tooltip = document.getElementById('twin-hud-tooltip');
+      if (tooltip) {
+        tooltip.style.display = 'block';
+        tooltip.style.left = '50%';
+        tooltip.style.top = '50%';
+        tooltip.style.transform = 'translate(-50%, -50%)';
+        tooltip.innerHTML = '<span style="color:#64748b; font-size:0.75rem;">Loading Human Virtual Twin...</span>';
+      }
     };
 
-    // 1. BRAIN
-    const brainGroup = new THREE.Group();
-    const hemisphereGeo = new THREE.SphereGeometry(0.25, 20, 20);
-    const lHem = new THREE.Mesh(hemisphereGeo, createOrganMaterial(0x10b981));
-    lHem.position.set(-0.08, 0, 0);
-    lHem.scale.set(0.7, 0.9, 1.1);
+    const hideLoading = () => {
+      const tooltip = document.getElementById('twin-hud-tooltip');
+      if (tooltip) {
+        tooltip.style.display = 'none';
+        tooltip.style.transform = 'none';
+      }
+    };
 
-    const rHem = new THREE.Mesh(hemisphereGeo, createOrganMaterial(0x10b981));
-    rHem.position.set(0.08, 0, 0);
-    rHem.scale.set(0.7, 0.9, 1.1);
+    showLoading();
 
-    brainGroup.add(lHem, rHem);
-    brainGroup.position.set(0, 1.82, 0);
-    brainGroup.userData = { organId: 'brain', name: 'Brain', system: 'Central Nervous System' };
-    this.scene.add(brainGroup);
-    this.organMeshes['brain'] = brainGroup;
+    const modelUrls = ['/models/human_twin.glb', '/public/models/human_twin.glb', 'models/human_twin.glb'];
+    let attemptIdx = 0;
 
-    // 2. HEART
-    const heartGroup = new THREE.Group();
-    const heartGeo = new THREE.SphereGeometry(0.14, 20, 20);
-    const heartMesh = new THREE.Mesh(heartGeo, createOrganMaterial(0x10b981));
-    heartMesh.scale.set(0.9, 1.25, 0.85);
-    heartMesh.rotation.z = -0.25;
-    heartMesh.rotation.y = 0.2;
+    const tryLoad = (url) => {
+      if (typeof THREE.GLTFLoader === 'undefined') {
+        console.warn('[PharmaTwin 3D] GLTFLoader not available on window.');
+        hideLoading();
+        return;
+      }
 
-    // Aorta arch
-    const aortaGeo = new THREE.TorusGeometry(0.07, 0.025, 12, 20, Math.PI);
-    const aortaMesh = new THREE.Mesh(aortaGeo, createOrganMaterial(0x10b981));
-    aortaMesh.position.set(0, 0.12, 0);
-    aortaMesh.rotation.z = Math.PI / 2;
+      const loader = new THREE.GLTFLoader();
+      loader.load(
+        url,
+        (gltf) => {
+          hideLoading();
+          this.setupAnatomicalModel(gltf.scene);
+        },
+        undefined,
+        (err) => {
+          attemptIdx++;
+          if (attemptIdx < modelUrls.length) {
+            tryLoad(modelUrls[attemptIdx]);
+          } else {
+            console.error('[PharmaTwin 3D] Failed to load human GLB asset from all paths:', err);
+            hideLoading();
+          }
+        }
+      );
+    };
 
-    heartGroup.add(heartMesh, aortaMesh);
-    heartGroup.position.set(-0.08, 1.15, 0.12);
-    heartGroup.userData = { organId: 'heart', name: 'Heart', system: 'Cardiovascular System' };
-    this.scene.add(heartGroup);
-    this.organMeshes['heart'] = heartGroup;
+    tryLoad(modelUrls[0]);
+  }
 
-    // 3. LUNGS
-    const lungsGroup = new THREE.Group();
-    const lungGeo = new THREE.ConeGeometry(0.18, 0.46, 16);
+  setupAnatomicalModel(scene) {
+    this.modelRoot = scene;
+    this.organMeshes = {};
 
-    const lLung = new THREE.Mesh(lungGeo, createOrganMaterial(0x10b981));
-    lLung.position.set(-0.24, 0, 0.05);
-    lLung.rotation.z = -0.15;
-    lLung.rotation.x = 0.1;
-    lLung.scale.set(0.85, 1.0, 0.7);
+    // Neutral translucent medical silhouette material for outer body
+    const bodyMaterial = new THREE.MeshPhysicalMaterial({
+      color: 0x94a3b8,
+      transparent: true,
+      opacity: 0.16,
+      roughness: 0.25,
+      metalness: 0.05,
+      transmission: 0.75,
+      ior: 1.2,
+      depthWrite: false,
+    });
 
-    const rLung = new THREE.Mesh(lungGeo, createOrganMaterial(0x10b981));
-    rLung.position.set(0.24, 0, 0.05);
-    rLung.rotation.z = 0.15;
-    rLung.rotation.x = 0.1;
-    rLung.scale.set(0.95, 1.0, 0.75);
+    const devMeshNames = [];
 
-    lungsGroup.add(lLung, rLung);
-    lungsGroup.position.set(0, 1.14, 0);
-    lungsGroup.userData = { organId: 'lung', name: 'Lung', system: 'Respiratory System' };
-    this.scene.add(lungsGroup);
-    this.organMeshes['lung'] = lungsGroup;
+    scene.traverse((child) => {
+      if (child.isMesh) {
+        const meshName = child.name || '';
+        devMeshNames.push(meshName);
 
-    // 4. LIVER
-    const liverGroup = new THREE.Group();
-    const liverGeo = new THREE.BoxGeometry(0.34, 0.22, 0.24);
-    const liverMesh = new THREE.Mesh(liverGeo, createOrganMaterial(0x10b981));
-    liverMesh.rotation.z = -0.2;
-    liverMesh.rotation.y = 0.15;
-    liverMesh.scale.set(1.0, 0.9, 0.8);
+        // Identify organ vs body silhouette
+        let matchedOrganId = null;
+        for (const [organId, aliases] of Object.entries(ORGAN_MESH_MAP)) {
+          if (aliases.some(alias => meshName.toLowerCase().includes(alias.toLowerCase()))) {
+            matchedOrganId = organId;
+            break;
+          }
+        }
 
-    liverGroup.add(liverMesh);
-    liverGroup.position.set(0.16, 0.68, 0.1);
-    liverGroup.userData = { organId: 'liver', name: 'Liver', system: 'Hepatic System' };
-    this.scene.add(liverGroup);
-    this.organMeshes['liver'] = liverGroup;
+        if (matchedOrganId) {
+          if (!this.organMeshes[matchedOrganId]) {
+            this.organMeshes[matchedOrganId] = [];
+          }
+          this.organMeshes[matchedOrganId].push(child);
 
-    // 5. KIDNEYS
-    const kidneysGroup = new THREE.Group();
-    const kidneyGeo = new THREE.SphereGeometry(0.09, 16, 16);
+          // Normal resting anatomical material (subtle resting tissue tone)
+          child.material = new THREE.MeshStandardMaterial({
+            color: 0x94a3b8,
+            roughness: 0.4,
+            metalness: 0.1,
+            transparent: true,
+            opacity: 0.85,
+            emissive: 0x000000,
+            emissiveIntensity: 0.0,
+          });
 
-    const lKidney = new THREE.Mesh(kidneyGeo, createOrganMaterial(0x10b981));
-    lKidney.position.set(-0.22, 0, -0.06);
-    lKidney.scale.set(0.65, 1.15, 0.8);
-    lKidney.rotation.z = 0.15;
+          child.userData = {
+            organId: matchedOrganId,
+            meshName: meshName,
+            isOrgan: true,
+            baseColor: 0x94a3b8,
+          };
+        } else {
+          // Body silhouette container
+          this.bodyMesh = child;
+          child.material = bodyMaterial;
+          child.userData = { isBodySilhouette: true };
+        }
+      }
+    });
 
-    const rKidney = new THREE.Mesh(kidneyGeo, createOrganMaterial(0x10b981));
-    rKidney.position.set(0.22, -0.04, -0.06);
-    rKidney.scale.set(0.65, 1.15, 0.8);
-    rKidney.rotation.z = -0.15;
+    console.info(`[PharmaTwin 3D] Anatomical Human Virtual Twin loaded. Meshes: [${devMeshNames.join(', ')}]`);
 
-    kidneysGroup.add(lKidney, rKidney);
-    kidneysGroup.position.set(0, 0.45, 0);
-    kidneysGroup.userData = { organId: 'kidney', name: 'Kidney', system: 'Renal System' };
-    this.scene.add(kidneysGroup);
-    this.organMeshes['kidney'] = kidneysGroup;
+    // Ensure model is centered at origin with feet at y=0
+    const bbox = new THREE.Box3().setFromObject(scene);
+    const size = new THREE.Vector3();
+    const center = new THREE.Vector3();
+    bbox.getSize(size);
+    bbox.getCenter(center);
 
-    // 6. GASTROINTESTINAL TRACT (Stomach & Intestines)
-    const giGroup = new THREE.Group();
-    const stomachGeo = new THREE.TorusGeometry(0.12, 0.06, 12, 20, Math.PI * 1.2);
-    const stomachMesh = new THREE.Mesh(stomachGeo, createOrganMaterial(0x10b981));
-    stomachMesh.position.set(-0.06, 0.14, 0.08);
-    stomachMesh.rotation.z = 0.5;
+    // Adjust position so feet are on the floor grid (y=0) and center is at x=0, z=0
+    scene.position.x = -center.x;
+    scene.position.y = -bbox.min.y;
+    scene.position.z = -center.z;
 
-    const intestineGeo = new THREE.CylinderGeometry(0.16, 0.2, 0.28, 16);
-    const intestineMesh = new THREE.Mesh(intestineGeo, createOrganMaterial(0x10b981));
-    intestineMesh.position.set(0, -0.08, 0.08);
-    intestineMesh.scale.set(1.1, 0.8, 0.7);
+    this.scene.add(scene);
 
-    giGroup.add(stomachMesh, intestineMesh);
-    giGroup.position.set(0, 0.32, 0);
-    giGroup.userData = { organId: 'gastrointestinal', name: 'Gastrointestinal Tract', system: 'Digestive System' };
-    this.scene.add(giGroup);
-    this.organMeshes['gastrointestinal'] = giGroup;
+    // If organ risk data was set before GLB loaded, update now
+    if (Object.keys(this.organData).length > 0) {
+      this.updateOrganRisks(this.organData);
+    }
+
+    // Set initial full-body camera position
+    this.setCameraPreset('all');
   }
 
   updateOrganRisks(organsData) {
     if (!organsData) return;
     this.organData = organsData;
 
-    const colorMap = {
-      Low: { color: 0x10b981, emissive: 0x047857, intensity: 0.35 },
-      Moderate: { color: 0xf59e0b, emissive: 0xb45309, intensity: 0.55 },
-      High: { color: 0xef4444, emissive: 0xb91c1c, intensity: 0.85 },
+    const riskColorMap = {
+      Low: { color: 0x16a34a, emissive: 0x15803d, intensity: 0.35 },
+      Moderate: { color: 0xd97706, emissive: 0xb45309, intensity: 0.55 },
+      High: { color: 0xdc2626, emissive: 0xb91c1c, intensity: 0.85 },
     };
 
-    for (const [organId, detail] of Object.entries(organsData)) {
-      const group = this.organMeshes[organId];
-      if (!group) continue;
+    const restingColor = { color: 0x94a3b8, emissive: 0x000000, intensity: 0.0 };
 
-      const category = detail.category || 'Low';
-      const config = colorMap[category] || colorMap['Low'];
+    for (const [organId, meshList] of Object.entries(this.organMeshes)) {
+      const organDetail = organsData[organId];
+      const hasElevatedRisk = organDetail && organDetail.risk > 0;
+      const category = organDetail?.category || 'Low';
 
-      group.traverse((child) => {
-        if (child.isMesh && child.material) {
-          child.material.color.setHex(config.color);
-          child.material.emissive.setHex(config.emissive);
-          child.material.emissiveIntensity = config.intensity;
-          child.userData.riskCategory = category;
+      const config = hasElevatedRisk ? (riskColorMap[category] || riskColorMap['Low']) : restingColor;
+
+      meshList.forEach((mesh) => {
+        if (mesh.material) {
+          mesh.material.color.setHex(config.color);
+          mesh.material.emissive.setHex(config.emissive);
+          mesh.material.emissiveIntensity = config.intensity;
+          mesh.userData.riskCategory = category;
+          mesh.userData.hasElevatedRisk = hasElevatedRisk;
         }
       });
     }
   }
 
   bindEvents() {
-    let isDragging = false;
-    let previousMousePosition = { x: 0, y: 0 };
-
-    this.container.addEventListener('mousedown', (e) => {
-      isDragging = true;
-      previousMousePosition = { x: e.clientX, y: e.clientY };
-    });
-
-    window.addEventListener('mouseup', () => {
-      isDragging = false;
-    });
-
     this.container.addEventListener('mousemove', (e) => {
       const rect = this.container.getBoundingClientRect();
       this.mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
       this.mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
-
-      if (isDragging) {
-        const deltaX = e.clientX - previousMousePosition.x;
-        const deltaY = e.clientY - previousMousePosition.y;
-
-        this.scene.rotation.y += deltaX * 0.008;
-        this.camera.position.y -= deltaY * 0.005;
-        this.camera.position.y = Math.max(-0.5, Math.min(2.5, this.camera.position.y));
-
-        previousMousePosition = { x: e.clientX, y: e.clientY };
-      } else {
-        this.checkHover(e);
-      }
+      this.checkHover(e);
     });
-
-    this.container.addEventListener('wheel', (e) => {
-      e.preventDefault();
-      this.camera.position.z += e.deltaY * 0.003;
-      this.camera.position.z = Math.max(1.5, Math.min(6.5, this.camera.position.z));
-    }, { passive: false });
 
     this.container.addEventListener('click', (e) => {
       this.handleClick(e);
@@ -372,17 +309,19 @@ export class HumanVirtualTwin {
   }
 
   checkHover(e) {
+    if (!this.modelRoot) return;
+
     this.raycaster.setFromCamera(this.mouse, this.camera);
-    const meshes = this.getAllSelectableMeshes();
-    const intersects = this.raycaster.intersectObjects(meshes, false);
+    const organMeshes = this.getAllSelectableOrganMeshes();
+    const intersects = this.raycaster.intersectObjects(organMeshes, false);
 
     const tooltip = document.getElementById('twin-hud-tooltip');
 
     if (intersects.length > 0) {
       const topMesh = intersects[0].object;
-      const organId = topMesh.parent.userData.organId;
+      const organId = topMesh.userData.organId;
 
-      if (this.hoveredOrgan !== organId) {
+      if (organId && this.hoveredOrgan !== organId) {
         this.hoveredOrgan = organId;
         this.container.style.cursor = 'pointer';
 
@@ -390,11 +329,11 @@ export class HumanVirtualTwin {
           const detail = this.organData[organId];
           tooltip.style.display = 'block';
           tooltip.innerHTML = `
-            <div style="font-weight:700;font-size:0.9rem;margin-bottom:2px;">${detail.name}</div>
-            <div style="font-size:0.75rem;color:#94a3b8;">${detail.system}</div>
+            <div style="font-weight:700;font-size:0.82rem;color:#0f172a;">${detail.name}</div>
+            <div style="font-size:0.7rem;color:#64748b;">${detail.system || 'Organ System'}</div>
             <div style="margin-top:4px;display:flex;align-items:center;gap:6px;">
               <span class="badge-risk ${detail.category.toLowerCase()}">${detail.category}</span>
-              <span style="font-family:monospace;font-size:0.8rem;">${(detail.risk * 100).toFixed(1)}%</span>
+              <span style="font-family:monospace;font-size:0.78rem;font-weight:700;">${(detail.risk * 100).toFixed(1)}%</span>
             </div>
           `;
         }
@@ -402,8 +341,8 @@ export class HumanVirtualTwin {
 
       if (tooltip) {
         const rect = this.container.getBoundingClientRect();
-        tooltip.style.left = `${e.clientX - rect.left}px`;
-        tooltip.style.top = `${e.clientY - rect.top}px`;
+        tooltip.style.left = `${e.clientX - rect.left + 12}px`;
+        tooltip.style.top = `${e.clientY - rect.top + 12}px`;
       }
     } else {
       if (this.hoveredOrgan) {
@@ -415,28 +354,32 @@ export class HumanVirtualTwin {
   }
 
   handleClick(e) {
+    if (!this.modelRoot) return;
+
     this.raycaster.setFromCamera(this.mouse, this.camera);
-    const meshes = this.getAllSelectableMeshes();
-    const intersects = this.raycaster.intersectObjects(meshes, false);
+    const organMeshes = this.getAllSelectableOrganMeshes();
+    const intersects = this.raycaster.intersectObjects(organMeshes, false);
 
     if (intersects.length > 0) {
       const topMesh = intersects[0].object;
-      const organId = topMesh.parent.userData.organId;
-      this.selectedOrgan = organId;
-      this.focusCameraOnOrgan(organId);
-      this.options.onOrganClick(organId);
+      const organId = topMesh.userData.organId;
+      if (organId) {
+        this.selectedOrgan = organId;
+        this.focusCameraOnOrgan(organId);
+        this.options.onOrganClick(organId);
+      }
     }
   }
 
   focusCameraOnOrgan(organId) {
     const targets = {
-      brain: { y: 1.82, z: 2.2 },
-      heart: { y: 1.15, z: 2.2 },
-      lung: { y: 1.14, z: 2.4 },
-      liver: { y: 0.68, z: 2.2 },
-      kidney: { y: 0.45, z: 2.2 },
-      gastrointestinal: { y: 0.35, z: 2.2 },
-      default: { y: 1.0, z: 4.5 },
+      brain: { y: 1.68, z: 1.05 },
+      heart: { y: 1.30, z: 1.15 },
+      lung: { y: 1.30, z: 1.25 },
+      liver: { y: 1.10, z: 1.15 },
+      kidney: { y: 0.98, z: 1.15 },
+      gastrointestinal: { y: 0.95, z: 1.20 },
+      default: { y: 0.90, z: 2.75 },
     };
 
     const target = targets[organId] || targets.default;
@@ -444,13 +387,17 @@ export class HumanVirtualTwin {
   }
 
   animateCameraTo(targetY, targetZ) {
+    if (this.controls) {
+      this.controls.target.set(0, targetY, 0);
+    }
+
     const startY = this.camera.position.y;
     const startZ = this.camera.position.z;
     let t = 0;
 
     const step = () => {
-      t += 0.05;
-      this.camera.position.y = THREE.MathUtils.lerp(startY, targetY, t);
+      t += 0.08;
+      this.camera.position.y = THREE.MathUtils.lerp(startY, targetY + 0.05, t);
       this.camera.position.z = THREE.MathUtils.lerp(startZ, targetZ, t);
       if (t < 1.0) {
         requestAnimationFrame(step);
@@ -459,12 +406,10 @@ export class HumanVirtualTwin {
     step();
   }
 
-  getAllSelectableMeshes() {
+  getAllSelectableOrganMeshes() {
     const list = [];
-    for (const group of Object.values(this.organMeshes)) {
-      group.traverse((child) => {
-        if (child.isMesh) list.push(child);
-      });
+    for (const meshList of Object.values(this.organMeshes)) {
+      list.push(...meshList);
     }
     return list;
   }
@@ -482,14 +427,20 @@ export class HumanVirtualTwin {
         break;
       case 'all':
       default:
-        this.animateCameraTo(1.0, 4.5);
-        this.scene.rotation.y = 0;
+        if (this.controls) {
+          this.controls.target.set(0, 0.90, 0);
+        }
+        this.animateCameraTo(0.90, 2.75);
+        if (this.modelRoot) this.modelRoot.rotation.y = 0;
         break;
     }
   }
 
   toggleAutoRotate() {
     this.isAutoRotate = !this.isAutoRotate;
+    if (this.controls) {
+      this.controls.autoRotate = this.isAutoRotate;
+    }
     return this.isAutoRotate;
   }
 
@@ -505,19 +456,18 @@ export class HumanVirtualTwin {
   animate() {
     this.animationFrameId = requestAnimationFrame(() => this.animate());
 
-    const delta = this.clock.getDelta();
     const time = this.clock.getElapsedTime();
 
-    if (this.isAutoRotate) {
-      this.scene.rotation.y += delta * 0.35;
+    if (this.controls) {
+      this.controls.update();
     }
 
-    // High risk pulsing glow
-    for (const group of Object.values(this.organMeshes)) {
-      group.traverse((child) => {
-        if (child.isMesh && child.userData.riskCategory === 'High') {
-          const pulse = 0.6 + 0.35 * Math.sin(time * 4.0);
-          child.material.emissiveIntensity = pulse;
+    // High risk subtle pulse for critical organs
+    for (const meshList of Object.values(this.organMeshes)) {
+      meshList.forEach((mesh) => {
+        if (mesh.userData.riskCategory === 'High' && mesh.material) {
+          const pulse = 0.65 + 0.3 * Math.sin(time * 3.5);
+          mesh.material.emissiveIntensity = pulse;
         }
       });
     }

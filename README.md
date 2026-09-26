@@ -309,23 +309,46 @@ curl "http://localhost:8000/api/organ-risk/dc6ece59-05c6-4aca-9f92-9a227d879b85"
   - Strictly prevents organ-first manual bias workflows.
 ### Phase 8: Unified Researcher Dashboard & Evidence Pipeline
 - **End-to-End Researcher Workflow**:
-  - Unified interface allowing seamless exploration across the complete 8-phase pipeline without page reloads:
+  - Unified interface allowing seamless exploration across the complete pipeline without page reloads:
     $$\text{Drug Input} \longrightarrow \text{Molecular Processing} \longrightarrow \text{Evidence Ingestion} \longrightarrow \text{Knowledge Graph} \longrightarrow \text{Risk Prediction} \longrightarrow \text{Explainability (SHAP)} \longrightarrow \text{Human Virtual Twin}$$
 - **Interactive Multi-Mode Viewport**:
   - **3D Human Virtual Twin**: Three.js WebGL anatomical model with modular selectable organ meshes (`brain`, `heart`, `lungs`, `liver`, `kidneys`, `gastrointestinal`) and real-time pulsing high-risk glow.
   - **Interactive Knowledge Graph Viewport**: Visual hierarchical tree depicting mechanistic relationships: $\text{Drug} \rightarrow \text{Targets} \rightarrow \text{Pathways} \rightarrow \text{Tissues} \rightarrow \text{Organs}$.
   - **2D Anatomical SVG Fallback**: Clean vector-based anatomical SVG mode.
-- **Cheminformatics & Molecular Evidence Panel**:
-  - 2D chemical structure depiction rendered via RDKit SVG.
-  - 9 physicochemical descriptors (Molecular Weight, LogP, TPSA, HBD, HBA, Rotatable Bonds, Ring Counts, Heavy Atom Counts).
-  - 2048-bit Morgan Circular Fingerprint (ECFP4 equivalent) summary and InChIKey.
-  - Structure file ingestion support (`.sdf`, `.mol`, `.sd`) with drag-and-drop file upload.
-- **Multi-Source Biomedical Evidence Cards**:
-  - Real-time aggregated evidence counters and badges from **PubChem**, **ChEMBL**, **UniProt**, **OpenTargets**, **SIDER**, and **PubMed**.
-- **Evidence Sufficiency & Low Evidence Alert**:
-  - Automated detection of sparse biomedical evidence with prominent alert: `⚠️ Insufficient supporting evidence — review required.`
-- **Slide-Over Organ Traceability Drawer**:
-  - Answers *"Why Did PharmaTwin Predict This Risk?"* with quantitative risk scores, primary pharmacological mechanisms, Knowledge Graph multi-hop paths, SIDER clinical adverse reactions, and PubMed citations.
+
+---
+
+### Phase 9: Persistent Storage, Provenance & Auditability
+- **Entities & Structured Lineage**:
+  - Typed persistence for `Drug`, `Molecule`, `EvidenceRecord`, `KnowledgeGraphEntity`, `KnowledgeGraphRelationship`, `ModelVersion`, `Prediction`, `OrganRisk`, `Explanation`, `LiteratureReference`, and `AuditEvent`.
+- **Reproducible Pipeline Lineage Extraction**:
+  - Tracks and audits every step in the discovery chain:
+    $$\text{Drug} \longrightarrow \text{Molecule} \longrightarrow \text{Evidence} \longrightarrow \text{Graph} \longrightarrow \text{Model} \longrightarrow \text{Prediction} \longrightarrow \text{Explanation} \longrightarrow \text{Organ Risk}$$
+- **Immutable Audit Logging**:
+  - Structured event logs (`event_id`, `timestamp`, `user_session`, `action`, `object_type`, `object_id`, `model_version`, `status`, `details`) recording actions: `DRUG_PROCESSED`, `EVIDENCE_INGESTED`, `GRAPH_BUILT`, `PREDICTION_CREATED`, `EXPLANATION_GENERATED`, `ORGAN_RISK_MAPPED`, and `MODEL_EVALUATED`.
+- **Model Versioning Registry**:
+  - Persistent registry storing model version tags, feature versions, training dataset versions, and hyperparameters.
+
+---
+
+### Phase 10: Model Validation & Research Evaluation
+- **Authentic Benchmark Evaluation**:
+  - Evaluates baseline classifiers on isolated test cohorts:
+    - **Calibrated Random Forest**
+    - **Regularized Logistic Regression (ElasticNet)**
+    - **Gradient Boosted Trees / XGBoost Baseline**
+    - **Multi-Model Evidence Ensemble**
+- **Non-Fabricated Classification Metrics**:
+  - Computes exact `Accuracy`, `Precision`, `Recall`, `F1-Score`, `ROC-AUC`, `PR-AUC` (Average Precision), `Brier Score`, and `Confusion Matrix` ($\text{TP}, \text{TN}, \text{FP}, \text{FN}$).
+- **Explainability & Evidence Sufficiency Evaluation**:
+  - Measures explanation completeness rate, evidence linkage coverage (% with Knowledge Graph paths), and evidence sufficiency rate (% passing gating checks).
+- **Organ-Level Evaluation Boundaries**:
+  - Evaluates performance against ground truth where benchmark labels exist (`heart`, `liver`, `kidney`, `lung`, `brain`).
+  - Formally identifies exploratory systems (`gastrointestinal`, `blood`, `skin`) as prototype evidence mapping layers without inventing artificial accuracy numbers.
+- **Reproducible Report Exporters**:
+  - JSON Schema (`GET /api/evaluation/model/{model_version}`)
+  - CSV Table Download (`GET /api/evaluation/report/csv`)
+  - Scientific Markdown Summary (`GET /api/evaluation/report/summary`)
 
 ---
 
@@ -346,7 +369,7 @@ pip install -r requirements.txt
 
 ### 2. Run Test Suite
 ```bash
-# Run all 110 unit and API integration tests
+# Run all 117 unit, API, auditability, and evaluation tests
 pytest tests/ -v
 ```
 
@@ -358,6 +381,7 @@ uvicorn app.main:app --host 127.0.0.1 --port 8000
 - **Unified Researcher Dashboard**: [http://localhost:8000/app](http://localhost:8000/app) or [http://localhost:8000/twin](http://localhost:8000/twin)
 - **Interactive API Documentation (Swagger UI)**: [http://localhost:8000/docs](http://localhost:8000/docs)
 - **ReDoc Technical Schema Reference**: [http://localhost:8000/redoc](http://localhost:8000/redoc)
+
 
 
 

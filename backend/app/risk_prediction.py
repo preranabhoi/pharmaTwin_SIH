@@ -802,7 +802,7 @@ def predict_drug_risk(
         created_at=now_iso,
     )
 
-    # 7. Persist to SQLite
+    # 7. Persist to SQLite & Phase 9 Lineage Tables
     save_risk_prediction(
         prediction_id=prediction_id,
         drug_id=context.drug_id,
@@ -811,5 +811,14 @@ def predict_drug_risk(
         confidence=overall_confidence,
         prediction_data=response.model_dump(),
     )
+
+    try:
+        from app.database import save_prediction_lineage
+        save_prediction_lineage(
+            prediction_data=response.model_dump(),
+            organ_mapping_data={"organs": {k: v.model_dump() for k, v in organ_risks.items()}},
+        )
+    except Exception as exc:
+        pass
 
     return response
